@@ -1,0 +1,43 @@
+# Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+.node/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Databases & Local state
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+static/reports/*.pdf
+!static/reports/.gitkeep
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+
+# Backups & Archives
+backup_pre_transformation/
+*.bak
+*.zip
+*.tar.gz
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini

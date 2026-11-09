@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # CardioPulse AI Application (FastAPI + React SPA)
+  cardiopulse-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cardiopulse-ai-platform
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=CardioPulse AI - Clinical Decision Support Platform
+      - SECRET_KEY=cardiopulse-clinical-security-key-production-ready-2026
+      - DATABASE_URL=postgresql+asyncpg://cardiopulse_user:cardiopulse_secure_2026@postgres-db:5432/cardiopulse
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - EMERGENCY_AMBULANCE_NUMBER=112
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    volumes:
+      - reports_data:/app/static/reports
+
+  # PostgreSQL Relational Database with Healthcheck
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: cardiopulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cardiopulse_user
+      POSTGRES_PASSWORD: cardiopulse_secure_2026
+      POSTGRES_DB: cardiopulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardiopulse_user -d cardiopulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  reports_data:
+

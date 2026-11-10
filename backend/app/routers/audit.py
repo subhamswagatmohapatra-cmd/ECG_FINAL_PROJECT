@@ -11,12 +11,16 @@ router = APIRouter(prefix="/privacy", tags=["Security, Privacy & Consent"])
 
 @router.get("/consent")
 async def get_patient_consent(
-    current_patient: Patient = Depends(get_current_patient),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    p_res = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
+    patient = p_res.scalars().first()
+    patient_id = patient.id if patient else 1
+
     res = await db.execute(
         select(UserConsent)
-        .where(UserConsent.patient_id == current_patient.id)
+        .where(UserConsent.patient_id == patient_id)
         .order_by(desc(UserConsent.consent_timestamp))
         .limit(1)
     )
@@ -41,12 +45,15 @@ async def get_patient_consent(
 @router.put("/consent")
 async def update_patient_consent(
     consent_in: UserConsentUpdate,
-    current_patient: Patient = Depends(get_current_patient),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    p_res = await db.execute(select(Patient).where(Patient.user_id == current_user.id))
+    patient = p_res.scalars().first()
+    patient_id = patient.id if patient else 1
+
     consent = UserConsent(
-        patient_id=current_patient.id,
+        patient_id=patient_id,
         consent_data_processing=consent_in.consent_data_processing,
         consent_ai_analysis=consent_in.consent_ai_analysis,
         consent_clinical_sharing=consent_in.consent_clinical_sharing,

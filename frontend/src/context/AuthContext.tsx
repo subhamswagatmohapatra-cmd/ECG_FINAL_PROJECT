@@ -4,7 +4,7 @@ import { api } from '../services/api';
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string; full_name: string; role: string }) => Promise<void>;
+  register: (data: any) => Promise<void>;
   logout: () => void;
   quickDemoLogin: (email: string, password?: string) => Promise<void>;
 }
@@ -79,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const register = async (data: { email: string; password: string; full_name: string; role: string }) => {
+  const register = async (data: any) => {
     const res = await api.register(data);
     localStorage.setItem('cardiopulse_token', res.access_token);
     if (res.patient_id) localStorage.setItem('cardiopulse_patient_id', String(res.patient_id));

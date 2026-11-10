@@ -393,11 +393,10 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                         key={sym}
                         type="button"
                         onClick={() => toggleSymptom(sym)}
-                        className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] border transition ${
-                          isChecked
+                        className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] border transition ${isChecked
                             ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-semibold'
                             : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
+                          }`}
                       >
                         {sym}
                       </button>
@@ -655,11 +654,10 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                     <div
                       key={up.id}
                       onClick={() => setActiveAnalysis({ upload: up, signal_data: up.signal_data, ai_analysis: up.ai_analysis })}
-                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between text-xs ${
-                        isSelected
+                      className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between text-xs ${isSelected
                           ? 'bg-teal-500/20 border-teal-500 text-white'
                           : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
+                        }`}
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">

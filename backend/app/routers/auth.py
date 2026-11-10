@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
-from app.models import User, Patient, Doctor, AuditLog, UserConsent, MedicalHistory
+from app.models import User, Patient, Doctor, AuditLog, UserConsent, MedicalHistory, DoctorVerification
 from app.schemas import UserCreate, UserLogin, Token, UserOut
 from app.auth import get_password_hash, verify_password, create_access_token, get_current_user
 import uuid
@@ -49,16 +49,28 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
             consent_clinical_sharing=True
         ))
     elif user_in.role == "doctor":
-        lic = f"MD-CARDIO-{uuid.uuid4().hex[:5].upper()}"
+        lic = user_in.license_number or f"MD-CARDIO-{uuid.uuid4().hex[:5].upper()}"
         doc = Doctor(
             user_id=new_user.id,
             license_number=lic,
-            specialty="Cardiology",
-            verified=True
+            specialty=user_in.specialty or "Cardiology & Electrophysiology",
+            hospital_affiliation=user_in.hospital_affiliation or "Metropolitan Heart & Vascular Institute",
+            qualifications=user_in.qualifications or "MBBS, MD",
+            years_of_experience=user_in.years_of_experience or 5,
+            verified=False, # Requires Admin verification before active clinical sign-off
+            verification_status="pending"
         )
         db.add(doc)
         await db.flush()
         doctor_id = doc.id
+
+        # Create initial pending doctor verification entry
+        db.add(DoctorVerification(
+            doctor_id=doc.id,
+            medical_council=user_in.medical_council or "State Medical Council",
+            graduation_year=2018,
+            status="pending"
+        ))
 
     # Audit log
     db.add(AuditLog(

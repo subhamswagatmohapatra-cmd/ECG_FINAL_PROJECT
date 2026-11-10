@@ -261,11 +261,10 @@ export const DoctorDashboardPage: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-black text-white">
                 {doctorProfile?.full_name || user?.full_name || 'Dr. Sarah Chen, MD'}
               </h1>
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase border ${
-                doctorProfile?.is_verified
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full uppercase border ${doctorProfile?.is_verified
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-              }`}>
+                }`}>
                 {doctorProfile?.is_verified ? 'Verified Cardiologist' : 'Verification Pending'}
               </span>
             </div>
@@ -308,11 +307,10 @@ export const DoctorDashboardPage: React.FC = () => {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3 text-xs overflow-x-auto">
         <button
           onClick={() => setActiveTab('submissions')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'submissions'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${activeTab === 'submissions'
               ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25'
               : 'text-slate-300 hover:text-white bg-slate-900/60 border border-slate-800'
-          }`}
+            }`}
         >
           <Activity className="w-4 h-4" />
           <span>ECG Submissions Queue</span>
@@ -325,11 +323,10 @@ export const DoctorDashboardPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('patients')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'patients'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${activeTab === 'patients'
               ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25'
               : 'text-slate-300 hover:text-white bg-slate-900/60 border border-slate-800'
-          }`}
+            }`}
         >
           <UserCheck className="w-4 h-4" />
           <span>Patient Roster & Dossiers</span>
@@ -340,11 +337,10 @@ export const DoctorDashboardPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('appointments')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'appointments'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${activeTab === 'appointments'
               ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25'
               : 'text-slate-300 hover:text-white bg-slate-900/60 border border-slate-800'
-          }`}
+            }`}
         >
           <Calendar className="w-4 h-4" />
           <span>Consultation Schedule</span>
@@ -357,11 +353,10 @@ export const DoctorDashboardPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${
-            activeTab === 'profile'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition whitespace-nowrap ${activeTab === 'profile'
               ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25'
               : 'text-slate-300 hover:text-white bg-slate-900/60 border border-slate-800'
-          }`}
+            }`}
         >
           <Award className="w-4 h-4" />
           <span>Doctor Credentials & Verification</span>
@@ -527,11 +522,10 @@ export const DoctorDashboardPage: React.FC = () => {
                     <button
                       key={pat.id}
                       onClick={() => loadPatientDossier(pat.id)}
-                      className={`w-full text-left p-3.5 rounded-2xl border transition flex items-center justify-between text-xs ${
-                        selectedPatientId === pat.id
+                      className={`w-full text-left p-3.5 rounded-2xl border transition flex items-center justify-between text-xs ${selectedPatientId === pat.id
                           ? 'bg-teal-950/50 border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.15)]'
                           : 'bg-slate-900/40 hover:bg-slate-800/60 border-slate-700/60'
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -547,12 +541,11 @@ export const DoctorDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col items-end gap-1 font-mono">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          pat.alert_level === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
-                          pat.alert_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
-                          pat.alert_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
-                          'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        }`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pat.alert_level === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
+                            pat.alert_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
+                              pat.alert_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                                'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          }`}>
                           {pat.alert_level}
                         </span>
                         <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
@@ -571,7 +564,7 @@ export const DoctorDashboardPage: React.FC = () => {
                 <UserCheck className="w-12 h-12 text-teal-400 mx-auto" />
                 <h3 className="font-bold text-base text-slate-200">Select a Patient</h3>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto font-mono">
-                  Select a patient from the triage roster on the left to review telemetry history, 
+                  Select a patient from the triage roster on the left to review telemetry history,
                   AI observations, and approve diagnostic reports.
                 </p>
               </div>
@@ -643,12 +636,11 @@ export const DoctorDashboardPage: React.FC = () => {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold text-slate-200">{rep.title}</span>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono ${
-                                rep.risk_level === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
-                                rep.risk_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
-                                rep.risk_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
-                                'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                              }`}>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded font-mono ${rep.risk_level === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
+                                  rep.risk_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
+                                    rep.risk_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                                      'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                }`}>
                                 {rep.risk_level}
                               </span>
                             </div>
@@ -823,11 +815,10 @@ export const DoctorDashboardPage: React.FC = () => {
                 </p>
               </div>
 
-              <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${
-                doctorProfile?.is_verified
+              <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold border ${doctorProfile?.is_verified
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-              }`}>
+                }`}>
                 {doctorProfile?.is_verified ? 'VERIFIED CLINICIAN' : 'AWAITING ADMIN REVIEW'}
               </span>
             </div>

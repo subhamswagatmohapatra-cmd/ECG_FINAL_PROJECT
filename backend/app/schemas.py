@@ -8,6 +8,12 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     full_name: str
     role: str = "patient" # 'patient', 'doctor', 'admin'
+    specialty: Optional[str] = None
+    license_number: Optional[str] = None
+    hospital_affiliation: Optional[str] = None
+    qualifications: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    medical_council: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: str

@@ -46,7 +46,7 @@ class ApiService {
     });
   }
 
-  async register(data: { email: string; password: string; full_name: string; role: string }) {
+  async register(data: any) {
     return this.request<any>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),

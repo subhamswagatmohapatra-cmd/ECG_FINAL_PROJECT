@@ -335,11 +335,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => { setSelectedRole('patient'); setError(null); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  selectedRole === 'patient'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${selectedRole === 'patient'
                     ? 'bg-teal-500 text-white shadow-md shadow-teal-500/25'
                     : 'text-slate-400 hover:text-white'
-                }`}
+                  }`}
               >
                 <User className="w-3.5 h-3.5" />
                 <span>Patient Account</span>
@@ -348,11 +347,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => { setSelectedRole('doctor'); setError(null); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  selectedRole === 'doctor'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${selectedRole === 'doctor'
                     ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-md shadow-teal-500/25'
                     : 'text-slate-400 hover:text-white'
-                }`}
+                  }`}
               >
                 <Stethoscope className="w-3.5 h-3.5" />
                 <span>Doctor / Cardiologist</span>
@@ -367,10 +365,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                 type="button"
                 onClick={() => handleNextStep(1)}
                 className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 1
-                    ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
-                    : step > 1
-                      ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
-                      : 'bg-slate-900/60 text-slate-500'
+                  ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
+                  : step > 1
+                    ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
+                    : 'bg-slate-900/60 text-slate-500'
                   }`}
               >
                 <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">1</span>
@@ -382,10 +380,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                 type="button"
                 onClick={() => handleNextStep(2)}
                 className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 2
-                    ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
-                    : step > 2
-                      ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
-                      : 'bg-slate-900/60 text-slate-500'
+                  ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
+                  : step > 2
+                    ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
+                    : 'bg-slate-900/60 text-slate-500'
                   }`}
               >
                 <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">2</span>
@@ -397,8 +395,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                 type="button"
                 onClick={() => handleNextStep(3)}
                 className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 3
-                    ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
-                    : 'bg-slate-900/60 text-slate-500'
+                  ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
+                  : 'bg-slate-900/60 text-slate-500'
                   }`}
               >
                 <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">3</span>

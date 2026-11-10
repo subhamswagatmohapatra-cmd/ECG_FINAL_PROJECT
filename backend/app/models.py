@@ -92,6 +92,7 @@ class Doctor(Base):
     years_of_experience = Column(Integer, default=12)
     bio = Column(Text, nullable=True)
     verified = Column(Boolean, default=True)
+    verification_status = Column(String(50), default="approved") # 'pending', 'approved', 'rejected'
     created_at = Column(DateTime, default=utc_now)
     
     user = relationship("User", back_populates="doctor_profile")

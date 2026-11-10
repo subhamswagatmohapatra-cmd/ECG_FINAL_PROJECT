@@ -8,9 +8,12 @@ class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
     };
+
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -337,6 +340,112 @@ class ApiService {
 
   async getGlobalAuditLogs(limit: number = 100) {
     return this.request<any[]>(`/admin/audit-logs?limit=${limit}`);
+  }
+
+  // AI ECG Signal Analysis
+  async uploadECG(formData: FormData) {
+    return this.request<any>('/ecg/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  async getECGUploads() {
+    return this.request<any[]>('/ecg/uploads');
+  }
+
+  async getECGUploadDetails(uploadId: number) {
+    return this.request<any>(`/ecg/uploads/${uploadId}`);
+  }
+
+  async submitECGToDoctor(uploadId: number, data: { doctor_id?: number; patient_notes?: string }) {
+    return this.request<any>(`/ecg/uploads/${uploadId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getECGDemoPresets() {
+    return this.request<any[]>('/ecg/demo-presets');
+  }
+
+  getECGPdfUrl(uploadId: number) {
+    return `/api/v1/ecg/uploads/${uploadId}/pdf`;
+  }
+
+  // Doctor Clinical Portal
+  async getDoctorProfile() {
+    return this.request<any>('/doctor/me');
+  }
+
+  async updateDoctorProfile(data: { specialty?: string; hospital_affiliation?: string; qualifications?: string; years_of_experience?: number; bio?: string; phone_number?: string }) {
+    return this.request<any>('/doctor/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDoctorECGSubmissions(statusFilter?: string) {
+    const q = statusFilter ? `?status_filter=${statusFilter}` : '';
+    return this.request<any[]>(`/doctor/submissions${q}`);
+  }
+
+  async recordClinicalObservation(uploadId: number, data: { observations_text: string; differential_diagnosis?: string; recommendations?: string; prescriptions_updated?: string; urgency_level?: string }) {
+    return this.request<any>(`/doctor/submissions/${uploadId}/observe`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDoctorAvailability() {
+    return this.request<any[]>('/doctor/availability');
+  }
+
+  async setDoctorAvailability(data: { day_of_week: string; start_time: string; end_time: string; slot_duration_minutes?: number; is_available?: boolean }) {
+    return this.request<any>('/doctor/availability', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getDoctorAppointments() {
+    return this.request<any[]>('/doctor/appointments');
+  }
+
+  async scheduleDoctorAppointment(data: { patient_id: number; appointment_date: string; appointment_type?: string; reason?: string }) {
+    const q = new URLSearchParams({
+      patient_id: data.patient_id.toString(),
+      appointment_date: data.appointment_date,
+      appointment_type: data.appointment_type || 'telehealth',
+      reason: data.reason || 'ECG rhythm follow-up and review'
+    }).toString();
+    return this.request<any>(`/doctor/appointments?${q}`, {
+      method: 'POST',
+    });
+  }
+
+  async updateAppointmentStatus(appointmentId: number, status: string, clinicalNotes?: string) {
+    const q = new URLSearchParams({ status_update: status });
+    if (clinicalNotes) q.append('clinical_notes', clinicalNotes);
+    return this.request<any>(`/doctor/appointments/${appointmentId}/status?${q.toString()}`, {
+      method: 'PUT',
+    });
+  }
+
+  // Admin Extended Management
+  async getPendingDoctors() {
+    return this.request<any[]>('/admin/doctors/pending');
+  }
+
+  async reviewDoctorVerification(doctorId: number, data: { status: string; review_notes?: string }) {
+    return this.request<any>(`/admin/doctors/${doctorId}/review-verification`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminECGMonitoring() {
+    return this.request<any>('/admin/ecg-monitoring');
   }
 }
 

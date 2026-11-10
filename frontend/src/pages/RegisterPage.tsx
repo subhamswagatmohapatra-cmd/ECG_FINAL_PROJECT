@@ -227,7 +227,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
   return (
     <div className="max-w-3xl mx-auto my-6 px-4 pb-12">
       <div className="glass-panel rounded-3xl border border-slate-700/80 shadow-2xl overflow-hidden backdrop-blur-2xl">
-        
+
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-[#030712] via-[#0b1329] to-[#030712] p-6 border-b border-slate-800 relative">
           <button
@@ -236,7 +236,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
           </button>
-          
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -261,13 +261,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => handleNextStep(1)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${
-                step === 1
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 1
                   ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
                   : step > 1
-                  ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
-                  : 'bg-slate-900/60 text-slate-500'
-              }`}
+                    ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
+                    : 'bg-slate-900/60 text-slate-500'
+                }`}
             >
               <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">1</span>
               <span className="hidden sm:inline">Account & Demographics</span>
@@ -277,13 +276,12 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => handleNextStep(2)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${
-                step === 2
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 2
                   ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
                   : step > 2
-                  ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
-                  : 'bg-slate-900/60 text-slate-500'
-              }`}
+                    ? 'bg-slate-800/80 text-teal-400 border border-teal-500/30'
+                    : 'bg-slate-900/60 text-slate-500'
+                }`}
             >
               <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">2</span>
               <span className="hidden sm:inline">Medical History</span>
@@ -293,11 +291,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => handleNextStep(3)}
-              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${
-                step === 3
+              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl transition ${step === 3
                   ? 'bg-teal-500 text-white font-bold shadow-md shadow-teal-500/30'
                   : 'bg-slate-900/60 text-slate-500'
-              }`}
+                }`}
             >
               <span className="w-4 h-4 rounded-full bg-black/30 flex items-center justify-center text-[10px]">3</span>
               <span className="hidden sm:inline">Lifestyle & Review</span>
@@ -324,7 +321,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
                 </h2>
                 <span className="text-[11px] text-slate-400 font-mono">* Required fields</span>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
                   <label className="block font-semibold text-slate-300 mb-1.5">

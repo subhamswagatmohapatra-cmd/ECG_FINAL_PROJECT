@@ -20,6 +20,7 @@ import { EducationCenterPage } from './pages/EducationCenterPage';
 import { DeviceManagementPage } from './pages/DeviceManagementPage';
 import { CardiovascularAnalyticsPage } from './pages/CardiovascularAnalyticsPage';
 import { HealthTimelinePage } from './pages/HealthTimelinePage';
+import { ECGUploadPage } from './pages/ECGUploadPage';
 import { BedsideTelemetryMonitor } from './components/BedsideTelemetryMonitor';
 import { ShieldCheck, HeartPulse, Stethoscope, AlertTriangle, Monitor, Radio } from 'lucide-react';
 
@@ -135,6 +136,7 @@ const AppContent: React.FC = () => {
         )}
 
         {activeTab === 'monitoring' && <HeartRateMonitoringPage onNavigate={setActiveTab} />}
+        {activeTab === 'ecg' && <ECGUploadPage onNavigate={setActiveTab} />}
         {activeTab === 'analysis' && <AIAnalysisPage onNavigate={setActiveTab} />}
         {activeTab === '3d-hub' && <Cardiovascular3DHubPage onNavigate={setActiveTab} />}
         {activeTab === 'analytics' && <CardiovascularAnalyticsPage onNavigate={setActiveTab} />}

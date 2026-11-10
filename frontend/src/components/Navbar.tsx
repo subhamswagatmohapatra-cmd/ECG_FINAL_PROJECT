@@ -139,6 +139,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     <Stethoscope className="w-4 h-4 text-teal-400" />
                     Doctor Portal
                   </button>
+                  <button
+                    onClick={() => setActiveTab('ecg')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition ${activeTab === 'ecg'
+                      ? 'bg-teal-600/30 text-teal-300 border border-teal-500/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                  >
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    ECG Engine
+                  </button>
                 </>
               )}
 
@@ -154,6 +164,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   >
                     <Activity className="w-4 h-4" />
                     Dashboard
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('ecg')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold transition ${activeTab === 'ecg'
+                      ? 'bg-gradient-to-r from-teal-500 to-cyan-600 text-white shadow-[0_0_15px_rgba(20,184,166,0.4)]'
+                      : 'text-cyan-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                  >
+                    <Activity className="w-4 h-4 text-cyan-300 animate-pulse" />
+                    AI ECG
                   </button>
 
                   <button
@@ -280,6 +301,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   >
                     <Stethoscope className="w-4 h-4 text-teal-400" />
                     Clinician Cockpit
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('ecg')}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition ${activeTab === 'ecg'
+                      ? 'bg-teal-600/30 text-teal-300 border border-teal-500/40'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                  >
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    ECG Engine
                   </button>
 
                   <button

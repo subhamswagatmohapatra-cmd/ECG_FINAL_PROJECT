@@ -92,11 +92,19 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
           </button>
 
           <button
+            onClick={() => onNavigate('ecg')}
+            className="flex items-center gap-2 bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-600 hover:from-teal-400 hover:to-cyan-400 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg shadow-teal-500/25 transition transform active:scale-95"
+          >
+            <Activity className="w-4 h-4 animate-pulse" />
+            <span>AI ECG Signal Analysis</span>
+          </button>
+
+          <button
             onClick={() => onNavigate('monitoring')}
-            className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-lg shadow-teal-500/25 transition transform active:scale-95"
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 font-semibold text-xs px-3.5 py-2 rounded-xl transition"
           >
             <PlusCircle className="w-4 h-4" />
-            <span>Record New Reading</span>
+            <span>Record Vitals</span>
           </button>
         </div>
       </div>

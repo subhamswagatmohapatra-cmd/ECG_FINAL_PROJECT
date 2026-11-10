@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import desc
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import time
+from datetime import datetime, timezone
 
 from app.database import get_db, engine
-from app.models import User, Patient, Doctor, HeartRateReading, AIAnalysis, HealthReport, EmergencyAlert, AuditLog
-from app.schemas import AdminStatsOut, AdminUserUpdate, UserOut
+from app.models import (
+    User, Patient, Doctor, HeartRateReading, AIAnalysis, HealthReport,
+    EmergencyAlert, AuditLog, ECGUpload, ECGAIAnalysis, DoctorVerification
+)
+from app.schemas import AdminStatsOut, AdminUserUpdate, UserOut, DoctorVerificationReview
 from app.routers.auth import get_current_user
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -191,4 +196,156 @@ async def list_global_audit_logs(
         }
         for l in logs
     ]
+
+@router.get("/doctors/pending")
+async def list_pending_doctors(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """List doctors awaiting administrative credential verification."""
+    stmt = (
+        select(Doctor)
+        .options(selectinload(Doctor.user), selectinload(Doctor.verifications))
+        .order_by(Doctor.id.desc())
+    )
+    res = await db.execute(stmt)
+    doctors = res.scalars().all()
+
+    doctor_list = []
+    for d in doctors:
+        latest_v = sorted(d.verifications, key=lambda x: x.submitted_at, reverse=True)[0] if d.verifications else None
+        doctor_list.append({
+            "id": d.id,
+            "user_id": d.user_id,
+            "full_name": d.user.full_name if d.user else "Unknown",
+            "email": d.user.email if d.user else "",
+            "phone_number": d.user.phone_number if d.user else "",
+            "license_number": d.license_number,
+            "specialty": d.specialty,
+            "hospital_affiliation": d.hospital_affiliation,
+            "qualifications": getattr(d, "qualifications", "MBBS, MD"),
+            "years_of_experience": getattr(d, "years_of_experience", 5),
+            "verified": d.verified,
+            "verification_status": d.verification_status or ("approved" if d.verified else "pending"),
+            "medical_council": latest_v.medical_council if latest_v else "National Medical Commission",
+            "graduation_year": latest_v.graduation_year if latest_v else 2016,
+            "submitted_at": latest_v.submitted_at.isoformat() if latest_v and latest_v.submitted_at else None,
+            "review_notes": latest_v.review_notes if latest_v else None
+        })
+
+    return doctor_list
+
+@router.post("/doctors/{doctor_id}/review-verification")
+async def review_doctor_verification(
+    doctor_id: int,
+    payload: DoctorVerificationReview,
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Approve or reject doctor clinical credentials."""
+    stmt = select(Doctor).options(selectinload(Doctor.verifications)).where(Doctor.id == doctor_id)
+    res = await db.execute(stmt)
+    doc = res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    is_approved = payload.status.lower() == "approved"
+    doc.verified = is_approved
+    doc.verification_status = payload.status.lower()
+
+    # Create or update verification record
+    latest_v = sorted(doc.verifications, key=lambda x: x.submitted_at, reverse=True)[0] if doc.verifications else None
+    now = datetime.now(timezone.utc)
+    if latest_v:
+        latest_v.status = payload.status.lower()
+        latest_v.reviewed_by_admin_id = admin_user.id
+        latest_v.review_notes = payload.review_notes
+        latest_v.reviewed_at = now
+    else:
+        new_v = DoctorVerification(
+            doctor_id=doc.id,
+            status=payload.status.lower(),
+            reviewed_by_admin_id=admin_user.id,
+            review_notes=payload.review_notes,
+            reviewed_at=now
+        )
+        db.add(new_v)
+
+    db.add(AuditLog(
+        user_id=admin_user.id,
+        action="ADMIN_REVIEW_DOCTOR_VERIFICATION",
+        resource_type="DOCTOR",
+        resource_id=str(doc.id),
+        details={"status": payload.status, "notes": payload.review_notes}
+    ))
+
+    await db.commit()
+    return {"message": f"Doctor verification updated to {payload.status}", "doctor_id": doc.id, "status": payload.status}
+
+@router.get("/ecg-monitoring")
+async def get_ecg_monitoring(
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Retrieve system-wide ECG upload volume, AI classifications, and risk distributions."""
+    # Fetch uploads
+    stmt = (
+        select(ECGUpload)
+        .options(
+            selectinload(ECGUpload.patient).selectinload(Patient.user),
+            selectinload(ECGUpload.ai_analysis)
+        )
+        .order_by(desc(ECGUpload.created_at))
+        .limit(100)
+    )
+    res = await db.execute(stmt)
+    uploads = res.scalars().all()
+
+    # Aggregate metrics
+    format_counts = {}
+    rhythm_counts = {}
+    tier_counts = {"GREEN": 0, "YELLOW": 0, "ORANGE": 0, "RED": 0}
+    total_analyzed = 0
+    sum_confidence = 0.0
+
+    recent_feed = []
+    for u in uploads:
+        format_counts[u.file_format] = format_counts.get(u.file_format, 0) + 1
+        ai = u.ai_analysis
+        patient = u.patient
+        patient_user = patient.user if patient else None
+
+        if ai:
+            total_analyzed += 1
+            sum_confidence += ai.model_confidence_pct
+            rhythm_counts[ai.primary_classification] = rhythm_counts.get(ai.primary_classification, 0) + 1
+            tier = ai.clinical_risk_tier or "GREEN"
+            tier_counts[tier] = tier_counts.get(tier, 0) + 1
+
+        recent_feed.append({
+            "upload_id": u.id,
+            "filename": u.original_filename,
+            "format": u.file_format,
+            "patient_code": patient.patient_id_code if patient else "N/A",
+            "patient_name": patient_user.full_name if patient_user else "Patient",
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "status": u.upload_status,
+            "rhythm": ai.primary_classification if ai else "Pending Analysis",
+            "heart_rate_bpm": ai.heart_rate_bpm if ai else None,
+            "risk_tier": ai.clinical_risk_tier if ai else "GREEN",
+            "confidence_pct": ai.model_confidence_pct if ai else None
+        })
+
+    avg_conf = round(sum_confidence / max(1, total_analyzed), 1)
+
+    return {
+        "total_uploads": len(uploads),
+        "total_analyzed": total_analyzed,
+        "average_model_confidence_pct": avg_conf,
+        "format_distribution": format_counts,
+        "rhythm_classification_distribution": rhythm_counts,
+        "risk_tier_distribution": tier_counts,
+        "recent_uploads": recent_feed[:20]
+    }
+
 

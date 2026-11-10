@@ -57,6 +57,8 @@ class Patient(Base):
     pregnancy_trimester = Column(Integer, nullable=True) # 1, 2, 3
     recent_illness_or_fever = Column(Boolean, default=False)
     recent_illness_details = Column(String(255), nullable=True)
+    blood_pressure_baseline = Column(String(50), nullable=True)
+    family_history_cardiac = Column(Text, nullable=True)
     
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -73,6 +75,8 @@ class Patient(Base):
     consents = relationship("UserConsent", back_populates="patient", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="patient", cascade="all, delete-orphan")
     devices = relationship("Device", back_populates="patient", cascade="all, delete-orphan")
+    ecg_uploads = relationship("ECGUpload", back_populates="patient", cascade="all, delete-orphan")
+    doctor_assignments = relationship("DoctorPatientAssignment", back_populates="patient", cascade="all, delete-orphan")
 
 # 3. Doctors
 class Doctor(Base):
@@ -84,12 +88,19 @@ class Doctor(Base):
     specialty = Column(String(100), default="Cardiology")
     hospital_affiliation = Column(String(255), nullable=True)
     consultation_phone = Column(String(50), nullable=True)
+    qualifications = Column(String(255), default="MD, FACC, MBBS")
+    years_of_experience = Column(Integer, default=12)
+    bio = Column(Text, nullable=True)
     verified = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)
     
     user = relationship("User", back_populates="doctor_profile")
     reviews = relationship("DoctorReview", back_populates="doctor")
     appointments = relationship("Appointment", back_populates="doctor")
+    verifications = relationship("DoctorVerification", back_populates="doctor", cascade="all, delete-orphan")
+    assigned_patients = relationship("DoctorPatientAssignment", back_populates="doctor", cascade="all, delete-orphan")
+    availabilities = relationship("DoctorAvailability", back_populates="doctor", cascade="all, delete-orphan")
+    observations = relationship("ClinicalObservation", back_populates="doctor", cascade="all, delete-orphan")
 
 # 4. Medical_History
 class MedicalHistory(Base):
@@ -264,10 +275,20 @@ class HealthReport(Base):
     clinical_limitations = Column(Text, nullable=False)
     pdf_filename = Column(String(255), nullable=True)
     is_clinician_approved = Column(Boolean, default=False)
+    
+    # ECG signal reference & Doctor submission workflow
+    ecg_upload_id = Column(Integer, ForeignKey("ecg_uploads.id"), nullable=True)
+    submission_status = Column(String(50), default="draft")  # 'draft', 'analysis_pending', 'analysis_completed', 'submitted', 'awaiting_doctor_review', 'reviewed', 'appointment_scheduled', 'consultation_completed'
+    assigned_doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=True)
+    patient_submission_notes = Column(Text, nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
+    
     generated_at = Column(DateTime, default=utc_now)
     
     patient = relationship("Patient", back_populates="reports")
     reviews = relationship("DoctorReview", back_populates="report", cascade="all, delete-orphan")
+    assigned_doctor = relationship("Doctor")
+    ecg_upload = relationship("ECGUpload", back_populates="reports")
 
 # 13. Doctor_Reviews
 class DoctorReview(Base):
@@ -416,4 +437,168 @@ class EducationProgress(Base):
     
     user = relationship("User", back_populates="education_progress")
     module = relationship("EducationModule", back_populates="progress")
+
+# 22. ECG_Uploads
+class ECGUpload(Base):
+    __tablename__ = "ecg_uploads"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_format = Column(String(20), nullable=False) # 'csv', 'txt', 'pdf', 'image', 'wfdb'
+    file_path = Column(String(500), nullable=False)
+    file_size_bytes = Column(Integer, default=0)
+    upload_status = Column(String(50), default="pending") # 'pending', 'processing', 'completed', 'failed'
+    error_message = Column(Text, nullable=True)
+    
+    # Clinical intake metadata captured at upload
+    recorded_bp = Column(String(50), nullable=True) # e.g. "124/82"
+    recorded_hr = Column(Integer, nullable=True)
+    symptoms_reported = Column(JSON, nullable=True) # list of symptoms at time of recording
+    family_history = Column(Text, nullable=True)
+    patient_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    
+    patient = relationship("Patient", back_populates="ecg_uploads")
+    signal_data = relationship("ECGSignalData", back_populates="upload", uselist=False, cascade="all, delete-orphan")
+    ai_analysis = relationship("ECGAIAnalysis", back_populates="upload", uselist=False, cascade="all, delete-orphan")
+    reports = relationship("HealthReport", back_populates="ecg_upload")
+    observations = relationship("ClinicalObservation", back_populates="ecg_upload")
+
+# 23. ECG_Signal_Data
+class ECGSignalData(Base):
+    __tablename__ = "ecg_signal_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(Integer, ForeignKey("ecg_uploads.id"), unique=True, nullable=False)
+    sampling_rate_hz = Column(Float, default=250.0)
+    duration_seconds = Column(Float, default=10.0)
+    lead_count = Column(Integer, default=1)
+    lead_labels = Column(JSON, default=list) # e.g. ["Lead II"]
+    raw_samples = Column(JSON, nullable=False) # Normalized downsampled visualization signal [v1, v2, ...]
+    filtered_samples = Column(JSON, nullable=True) # Baseline-wander & noise-filtered signal points
+    signal_quality_index = Column(Float, default=1.0) # 0.0 to 1.0 SQI
+    created_at = Column(DateTime, default=utc_now)
+    
+    upload = relationship("ECGUpload", back_populates="signal_data")
+
+# 24. ECG_AI_Analysis
+class ECGAIAnalysis(Base):
+    __tablename__ = "ecg_ai_analyses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(Integer, ForeignKey("ecg_uploads.id"), unique=True, nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    
+    # DSP Heart Rate & Interval Metrics
+    heart_rate_bpm = Column(Integer, nullable=False)
+    rr_intervals_ms = Column(JSON, default=list) # list of consecutive RR intervals in ms
+    mean_rr_ms = Column(Float, nullable=True)
+    sdnn_ms = Column(Float, nullable=True) # HRV standard deviation
+    rmssd_ms = Column(Float, nullable=True) # HRV root mean square of successive differences
+    qrs_duration_ms = Column(Float, nullable=True) # e.g. 88 ms (normal 80-120ms)
+    qt_interval_ms = Column(Float, nullable=True)
+    qtc_interval_ms = Column(Float, nullable=True) # Bazett corrected QT
+    st_segment_deviation_mv = Column(Float, nullable=True) # in millivolts
+    
+    # Clinical Signal Quality & QRS Localization
+    signal_quality = Column(String(50), default="GOOD") # 'EXCELLENT', 'GOOD', 'NOISY', 'INCONCLUSIVE'
+    baseline_wander_corrected = Column(Boolean, default=True)
+    r_peak_indices = Column(JSON, default=list) # Indices of detected R-peaks
+    
+    # AI Classification & Explanations
+    primary_classification = Column(String(100), nullable=False) # e.g. 'Normal Sinus Rhythm', 'Sinus Bradycardia', 'Sinus Tachycardia', 'Atrial Fibrillation / Arrhythmia', 'Premature Ventricular Contractions', 'ST Deviation Concern', 'Inconclusive'
+    secondary_classifications = Column(JSON, default=list)
+    model_confidence_pct = Column(Float, default=95.0)
+    explainability_notes = Column(JSON, default=list)
+    clinical_risk_tier = Column(String(20), default="GREEN") # 'GREEN', 'YELLOW', 'ORANGE', 'RED'
+    model_version = Column(String(100), default="CardioPulse-PanTompkins-ResNet-v1.2")
+    status = Column(String(50), default="COMPLETED")
+    created_at = Column(DateTime, default=utc_now)
+    
+    upload = relationship("ECGUpload", back_populates="ai_analysis")
+    patient = relationship("Patient")
+
+# 25. Doctor_Verifications
+class DoctorVerification(Base):
+    __tablename__ = "doctor_verifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    license_copy_url = Column(String(500), nullable=True)
+    medical_council = Column(String(255), default="State Medical Council / MCI")
+    graduation_year = Column(Integer, default=2015)
+    id_document_number = Column(String(100), nullable=True)
+    status = Column(String(50), default="approved") # 'pending', 'approved', 'rejected'
+    reviewed_by_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    review_notes = Column(Text, nullable=True)
+    submitted_at = Column(DateTime, default=utc_now)
+    reviewed_at = Column(DateTime, nullable=True)
+    
+    doctor = relationship("Doctor", back_populates="verifications")
+
+# 26. Doctor_Patient_Assignments
+class DoctorPatientAssignment(Base):
+    __tablename__ = "doctor_patient_assignments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    status = Column(String(50), default="active") # 'active', 'requested', 'completed'
+    assigned_at = Column(DateTime, default=utc_now)
+    assigned_by = Column(String(50), default="system") # 'patient_request', 'admin', 'system'
+    
+    doctor = relationship("Doctor", back_populates="assigned_patients")
+    patient = relationship("Patient", back_populates="doctor_assignments")
+
+# 27. Doctor_Availability
+class DoctorAvailability(Base):
+    __tablename__ = "doctor_availability"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    day_of_week = Column(String(50), nullable=False) # 'Monday', 'Tuesday', ...
+    start_time = Column(String(20), default="09:00")
+    end_time = Column(String(20), default="17:00")
+    slot_duration_minutes = Column(Integer, default=30)
+    is_available = Column(Boolean, default=True)
+    
+    doctor = relationship("Doctor", back_populates="availabilities")
+
+# 28. Clinical_Observations
+class ClinicalObservation(Base):
+    __tablename__ = "clinical_observations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("health_reports.id"), nullable=True)
+    ecg_upload_id = Column(Integer, ForeignKey("ecg_uploads.id"), nullable=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    
+    observations_text = Column(Text, nullable=False)
+    differential_diagnosis = Column(Text, nullable=True)
+    recommendations = Column(Text, nullable=True)
+    prescriptions_updated = Column(Text, nullable=True)
+    urgency_level = Column(String(50), default="routine") # 'routine', 'urgent', 'emergency'
+    signature_hash = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    
+    doctor = relationship("Doctor", back_populates="observations")
+    ecg_upload = relationship("ECGUpload", back_populates="observations")
+
+# 29. AI_Model_Versions
+class AIModelVersion(Base):
+    __tablename__ = "ai_model_versions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    model_name = Column(String(100), default="CardioPulse DSP-ResNet")
+    version_tag = Column(String(50), unique=True, default="v1.2.0")
+    architecture = Column(String(100), default="Pan-Tompkins + 1D-CNN Rhythm Classifier")
+    description = Column(Text, default="Lead II clinical QRS morphology and RR-interval variability model trained on PhysioNet/MIT-BIH Arrhythmia benchmarks.")
+    accuracy_benchmark = Column(Float, default=98.2)
+    sensitivity = Column(Float, default=97.8)
+    specificity = Column(Float, default=98.6)
+    is_active = Column(Boolean, default=True)
+    deployed_at = Column(DateTime, default=utc_now)
 

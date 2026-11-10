@@ -412,3 +412,137 @@ class AdminStatsOut(BaseModel):
     database_connected: bool
     uptime_seconds: float
 
+# ECG Upload and Signal Schemas
+class ECGUploadCreate(BaseModel):
+    recorded_bp: Optional[str] = None
+    recorded_hr: Optional[int] = None
+    symptoms_reported: Optional[List[str]] = []
+    family_history: Optional[str] = None
+    patient_notes: Optional[str] = None
+
+class ECGSignalDataOut(BaseModel):
+    id: int
+    upload_id: int
+    sampling_rate_hz: float
+    duration_seconds: float
+    lead_count: int
+    lead_labels: List[str]
+    raw_samples: List[float]
+    filtered_samples: Optional[List[float]] = None
+    signal_quality_index: float
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class ECGAIAnalysisOut(BaseModel):
+    id: int
+    upload_id: int
+    patient_id: int
+    heart_rate_bpm: int
+    rr_intervals_ms: List[float]
+    mean_rr_ms: Optional[float] = None
+    sdnn_ms: Optional[float] = None
+    rmssd_ms: Optional[float] = None
+    qrs_duration_ms: Optional[float] = None
+    qt_interval_ms: Optional[float] = None
+    qtc_interval_ms: Optional[float] = None
+    st_segment_deviation_mv: Optional[float] = None
+    signal_quality: str
+    baseline_wander_corrected: bool
+    r_peak_indices: List[int]
+    primary_classification: str
+    secondary_classifications: List[str]
+    model_confidence_pct: float
+    explainability_notes: List[str]
+    clinical_risk_tier: str
+    model_version: str
+    status: str
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class ECGUploadOut(BaseModel):
+    id: int
+    patient_id: int
+    filename: str
+    original_filename: str
+    file_format: str
+    file_size_bytes: int
+    upload_status: str
+    recorded_bp: Optional[str] = None
+    recorded_hr: Optional[int] = None
+    symptoms_reported: Optional[List[str]] = None
+    family_history: Optional[str] = None
+    patient_notes: Optional[str] = None
+    created_at: datetime
+    signal_data: Optional[ECGSignalDataOut] = None
+    ai_analysis: Optional[ECGAIAnalysisOut] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class DoctorVerificationOut(BaseModel):
+    id: int
+    doctor_id: int
+    medical_council: str
+    graduation_year: int
+    status: str
+    review_notes: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class DoctorVerificationReview(BaseModel):
+    status: str # 'approved', 'rejected'
+    review_notes: Optional[str] = None
+
+class DoctorProfileUpdate(BaseModel):
+    specialty: Optional[str] = None
+    hospital_affiliation: Optional[str] = None
+    consultation_phone: Optional[str] = None
+    qualifications: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    bio: Optional[str] = None
+
+class ClinicalObservationCreate(BaseModel):
+    report_id: Optional[int] = None
+    ecg_upload_id: Optional[int] = None
+    observations_text: str
+    differential_diagnosis: Optional[str] = None
+    recommendations: Optional[str] = None
+    prescriptions_updated: Optional[str] = None
+    urgency_level: str = "routine"
+
+class ClinicalObservationOut(BaseModel):
+    id: int
+    doctor_id: int
+    patient_id: int
+    observations_text: str
+    differential_diagnosis: Optional[str] = None
+    recommendations: Optional[str] = None
+    prescriptions_updated: Optional[str] = None
+    urgency_level: str
+    signature_hash: Optional[str] = None
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class DoctorAvailabilityCreate(BaseModel):
+    day_of_week: str
+    start_time: str
+    end_time: str
+    slot_duration_minutes: int = 30
+    is_available: bool = True
+
+class DoctorAvailabilityOut(DoctorAvailabilityCreate):
+    id: int
+    doctor_id: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class AppointmentCancel(BaseModel):
+    reason: str
+
+class AppointmentReschedule(BaseModel):
+    appointment_date: datetime
+    instructions: Optional[str] = None
+

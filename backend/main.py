@@ -10,7 +10,7 @@ from app.database import engine, Base, AsyncSessionLocal
 from app.seed_data import seed_database
 from app.routers import (
     auth, patients, readings, analysis, reports, doctor, chat, audit,
-    appointments, messages, notifications, devices, education, admin, analytics, telemetry_ws
+    appointments, messages, notifications, devices, education, admin, analytics, telemetry_ws, ecg
 )
 
 @asynccontextmanager
@@ -66,6 +66,7 @@ app.include_router(education.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(analytics.router, prefix=settings.API_V1_STR)
 app.include_router(telemetry_ws.router, prefix=settings.API_V1_STR)
+app.include_router(ecg.router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
 async def health_check():

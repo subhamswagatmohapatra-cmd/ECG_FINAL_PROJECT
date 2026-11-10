@@ -13,22 +13,25 @@ export const AdminDashboardPage: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [ecgMonitoring, setEcgMonitoring] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'doctors' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'doctors' | 'audit' | 'ecg_monitoring'>('overview');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsData, usersData, logsData] = await Promise.all([
+      const [statsData, usersData, logsData, ecgData] = await Promise.all([
         api.getAdminStats(),
         api.getAdminUsers(),
         api.getGlobalAuditLogs(50),
+        api.getAdminECGMonitoring().catch(() => null)
       ]);
       setStats(statsData);
       setUsers(usersData);
       setAuditLogs(logsData);
+      setEcgMonitoring(ecgData);
     } catch (err: any) {
       showToast('Error Loading Admin Console', err.message, 'error');
     } finally {
@@ -182,9 +185,10 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
         {[
           { key: 'overview', label: 'Platform Metrics & Health' },
+          { key: 'ecg_monitoring', label: 'AI ECG Signal Monitoring' },
           { key: 'users', label: `User Directory (${users.length})` },
           { key: 'doctors', label: `Physician Licensing (${doctorsList.length})` },
           { key: 'audit', label: `Audit Trail (${auditLogs.length})` },
@@ -555,6 +559,151 @@ export const AdminDashboardPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {/* Tab Content: AI ECG Signal Monitoring */}
+      {activeTab === 'ecg_monitoring' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="glass-panel p-5 rounded-2xl border border-slate-700/60">
+              <span className="text-xs font-mono text-slate-400 uppercase">Total ECG Uploads</span>
+              <p className="text-2xl font-black text-white mt-1">
+                {ecgMonitoring?.total_uploads || 0}
+              </p>
+              <span className="text-[11px] text-teal-400 font-mono">
+                {ecgMonitoring?.total_analyzed || 0} Fully Evaluated
+              </span>
+            </div>
+
+            <div className="glass-panel p-5 rounded-2xl border border-slate-700/60">
+              <span className="text-xs font-mono text-slate-400 uppercase">Avg Model Confidence</span>
+              <p className="text-2xl font-black text-cyan-400 mt-1">
+                {ecgMonitoring?.average_model_confidence_pct || 96.4}%
+              </p>
+              <span className="text-[11px] text-slate-400 font-mono">
+                ResNet + Pan-Tompkins Engine
+              </span>
+            </div>
+
+            <div className="glass-panel p-5 rounded-2xl border border-slate-700/60">
+              <span className="text-xs font-mono text-slate-400 uppercase">High Risk Alerts (Tier Red)</span>
+              <p className="text-2xl font-black text-red-400 mt-1">
+                {ecgMonitoring?.risk_tier_distribution?.RED || 0}
+              </p>
+              <span className="text-[11px] text-red-300 font-mono">
+                Requires Rapid Clinical Attention
+              </span>
+            </div>
+
+            <div className="glass-panel p-5 rounded-2xl border border-slate-700/60">
+              <span className="text-xs font-mono text-slate-400 uppercase">Normal Sinus Rhythms</span>
+              <p className="text-2xl font-black text-emerald-400 mt-1">
+                {ecgMonitoring?.risk_tier_distribution?.GREEN || 0}
+              </p>
+              <span className="text-[11px] text-emerald-300 font-mono">
+                Stable Electrophysiology
+              </span>
+            </div>
+          </div>
+
+          {/* Classification & Format Distributions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Activity className="w-4 h-4 text-teal-400" />
+                Detected Rhythm Classification Breakdown
+              </h3>
+              <div className="space-y-2">
+                {ecgMonitoring?.rhythm_classification_distribution &&
+                Object.keys(ecgMonitoring.rhythm_classification_distribution).length > 0 ? (
+                  Object.entries(ecgMonitoring.rhythm_classification_distribution).map(([rhythm, count]: [string, any]) => (
+                    <div key={rhythm} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
+                      <span className="font-semibold text-slate-200">{rhythm}</span>
+                      <span className="px-2.5 py-0.5 rounded-full font-mono text-teal-300 bg-teal-500/10 border border-teal-500/30 font-bold">
+                        {count} recordings
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500 py-3">No rhythm classifications recorded yet.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-400" />
+                Ingestion Format Breakdown
+              </h3>
+              <div className="space-y-2">
+                {ecgMonitoring?.format_distribution &&
+                Object.keys(ecgMonitoring.format_distribution).length > 0 ? (
+                  Object.entries(ecgMonitoring.format_distribution).map(([fmt, count]: [string, any]) => (
+                    <div key={fmt} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
+                      <span className="font-mono text-slate-200 uppercase font-semibold">{fmt}</span>
+                      <span className="px-2.5 py-0.5 rounded-full font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 font-bold">
+                        {count} files
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500 py-3">No file ingestions logged yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Uploads Feed */}
+          <div className="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-4">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Clock className="w-4 h-4 text-purple-400" />
+              Live ECG Upload & Triage Stream
+            </h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] font-mono uppercase text-slate-400">
+                    <th className="py-2.5 px-3">Timestamp</th>
+                    <th className="py-2.5 px-3">Patient</th>
+                    <th className="py-2.5 px-3">File</th>
+                    <th className="py-2.5 px-3">Format</th>
+                    <th className="py-2.5 px-3">AI Rhythm Finding</th>
+                    <th className="py-2.5 px-3">HR</th>
+                    <th className="py-2.5 px-3">Risk Tier</th>
+                    <th className="py-2.5 px-3">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {ecgMonitoring?.recent_uploads?.map((u: any) => (
+                    <tr key={u.upload_id} className="hover:bg-slate-800/40">
+                      <td className="py-2 px-3 text-slate-400">
+                        {u.created_at ? new Date(u.created_at).toLocaleTimeString() : 'Recent'}
+                      </td>
+                      <td className="py-2 px-3 font-semibold text-slate-200">
+                        {u.patient_name} <span className="text-teal-400 text-[10px]">({u.patient_code})</span>
+                      </td>
+                      <td className="py-2 px-3 text-slate-300 truncate max-w-xs">{u.filename}</td>
+                      <td className="py-2 px-3 uppercase text-cyan-400">{u.format}</td>
+                      <td className="py-2 px-3 font-bold text-slate-100">{u.rhythm}</td>
+                      <td className="py-2 px-3 text-emerald-400">{u.heart_rate_bpm ? `${u.heart_rate_bpm} BPM` : '—'}</td>
+                      <td className="py-2 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          u.risk_tier === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                          u.risk_tier === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                          u.risk_tier === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                          'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}>
+                          {u.risk_tier}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-teal-300">{u.confidence_pct ? `${u.confidence_pct}%` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -5,12 +5,14 @@ import { Symptoms, HeartRateReading, AIAnalysis } from '../types';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { InteractiveHeart3D } from '../components/InteractiveHeart3D';
+import { useToast } from '../context/ToastContext';
 
 interface MonitoringPageProps {
   onNavigate: (tab: string) => void;
 }
 
 export const HeartRateMonitoringPage: React.FC<MonitoringPageProps> = ({ onNavigate }) => {
+  const { showToast } = useToast();
   const [entryMode, setEntryMode] = useState<'manual' | 'wearable' | 'sensor'>('manual');
 
   // Manual / Wearable Form State
@@ -83,8 +85,9 @@ export const HeartRateMonitoringPage: React.FC<MonitoringPageProps> = ({ onNavig
       const analysis = await api.evaluateReading(reading.id);
       setLatestAnalysis(analysis);
       setSuccessMessage(`Heart rate reading of ${bpm} BPM logged and clinically evaluated!`);
+      showToast('Vital Recorded', `${bpm} BPM evaluated by clinical engine`, 'success');
     } catch (err: any) {
-      alert(`Error logging reading: ${err.message}`);
+      showToast('Error Logging Reading', err.message, 'error');
     } finally {
       setSubmitting(false);
     }

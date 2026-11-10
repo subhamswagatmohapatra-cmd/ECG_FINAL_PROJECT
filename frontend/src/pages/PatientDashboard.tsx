@@ -11,6 +11,7 @@ import { ReportViewerModal } from '../components/ReportViewerModal';
 import { InteractiveHeart3D } from '../components/InteractiveHeart3D';
 import { LiveECGMonitorCanvas } from '../components/LiveECGMonitorCanvas';
 import { BedsideTelemetryMonitor } from '../components/BedsideTelemetryMonitor';
+import { useToast } from '../context/ToastContext';
 
 interface PatientDashboardProps {
   onNavigate: (tab: string) => void;
@@ -18,6 +19,7 @@ interface PatientDashboardProps {
 
 export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
   const [latestAnalysis, setLatestAnalysis] = useState<AIAnalysis | null>(null);
   const [recentReports, setRecentReports] = useState<HealthReport[]>([]);
@@ -385,8 +387,13 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
         <AIInsightCard
           analysis={latestAnalysis}
           onGenerateReport={async () => {
-            const newRep = await api.generateReport();
-            setSelectedReport(newRep);
+            try {
+              const newRep = await api.generateReport();
+              setSelectedReport(newRep);
+              showToast('Report Generated', `Reference Code: ${newRep.report_reference_code}`, 'success');
+            } catch (err: any) {
+              showToast('Report Generation Failed', err.message, 'error');
+            }
           }}
         />
       )}

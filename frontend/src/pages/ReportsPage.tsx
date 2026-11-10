@@ -3,8 +3,10 @@ import { FileText, Download, Printer, PlusCircle, CheckCircle2, AlertTriangle, S
 import { api } from '../services/api';
 import { HealthReport } from '../types';
 import { ReportViewerModal } from '../components/ReportViewerModal';
+import { useToast } from '../context/ToastContext';
 
 export const ReportsPage: React.FC = () => {
+  const { showToast } = useToast();
   const [reports, setReports] = useState<HealthReport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedReport, setSelectedReport] = useState<HealthReport | null>(null);
@@ -32,8 +34,9 @@ export const ReportsPage: React.FC = () => {
       const newRep = await api.generateReport();
       setReports(prev => [newRep, ...prev]);
       setSelectedReport(newRep);
+      showToast('Report Generated', `Reference: ${newRep.report_reference_code}`, 'success');
     } catch (e: any) {
-      alert(`Report compilation failed: ${e.message}`);
+      showToast('Report Compilation Failed', e.message, 'error');
     } finally {
       setGenerating(false);
     }
@@ -94,9 +97,9 @@ export const ReportsPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-white">{report.title}</span>
                     <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${report.risk_level === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse' :
-                        report.risk_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
-                          report.risk_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
-                            'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      report.risk_level === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/40' :
+                        report.risk_level === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                          'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                       }`}>
                       {report.risk_level} TRIAGE
                     </span>

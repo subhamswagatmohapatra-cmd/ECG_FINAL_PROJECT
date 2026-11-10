@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Stethoscope, Search, UserCheck, ShieldAlert, CheckCircle2, AlertTriangle, FileText, ChevronRight, Activity, Clock, PenTool, Monitor, Radio } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { ReportViewerModal } from '../components/ReportViewerModal';
 import { BedsideTelemetryMonitor } from '../components/BedsideTelemetryMonitor';
 
 export const DoctorDashboardPage: React.FC = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [patients, setPatients] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
@@ -65,13 +67,13 @@ export const DoctorDashboardPage: React.FC = () => {
         recommended_followup: recommendedFollowup,
         approved: true
       });
-      alert('Report approved and digitally signed into medical record!');
+      showToast('Report Approved & Signed', 'Digitally stamped into patient permanent medical record', 'success');
       setActiveReportToReview(null);
       if (selectedPatientId) {
         await loadPatientDossier(selectedPatientId);
       }
     } catch (err: any) {
-      alert(`Approval error: ${err.message}`);
+      showToast('Approval Error', err.message, 'error');
     } finally {
       setSigning(false);
     }

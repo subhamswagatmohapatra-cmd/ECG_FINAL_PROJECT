@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -31,8 +31,7 @@ class UserOut(BaseModel):
     is_active: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Medical History Schemas
 class MedicalHistoryBase(BaseModel):
@@ -49,8 +48,7 @@ class MedicalHistoryBase(BaseModel):
 class MedicalHistoryOut(MedicalHistoryBase):
     id: int
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Medication Schemas
 class MedicationBase(BaseModel):
@@ -68,8 +66,7 @@ class MedicationCreate(MedicationBase):
 class MedicationOut(MedicationBase):
     id: int
     is_active: bool
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Allergy Schemas
 class AllergyBase(BaseModel):
@@ -79,8 +76,7 @@ class AllergyBase(BaseModel):
 
 class AllergyOut(AllergyBase):
     id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Patient Schemas
 class PatientProfileUpdate(BaseModel):
@@ -135,8 +131,7 @@ class PatientOut(BaseModel):
     allergies: List[AllergyOut] = []
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Symptom Schemas
 class SymptomInput(BaseModel):
@@ -156,8 +151,7 @@ class SymptomInput(BaseModel):
 class SymptomOut(SymptomInput):
     id: int
     recorded_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Heart Rate Reading Schemas
 class HeartRateCreate(BaseModel):
@@ -181,8 +175,7 @@ class HeartRateOut(BaseModel):
     symptoms: Optional[SymptomOut] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # AI Analysis & Safety Schemas
 class EmergencyAlertOut(BaseModel):
@@ -233,8 +226,7 @@ class HealthReportOut(BaseModel):
     generated_at: datetime
     pdf_filename: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Doctor Review Schemas
 class DoctorReviewCreate(BaseModel):
@@ -301,8 +293,7 @@ class AppointmentOut(BaseModel):
     clinical_notes: Optional[str] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Messaging Schemas
 class MessageCreate(BaseModel):
@@ -325,8 +316,7 @@ class MessageOut(BaseModel):
     is_read: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Notification Schemas
 class NotificationCreate(BaseModel):
@@ -348,8 +338,7 @@ class NotificationOut(BaseModel):
     action_url: Optional[str] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Device Schemas
 class DeviceRegister(BaseModel):
@@ -373,8 +362,7 @@ class DeviceOut(BaseModel):
     is_active: bool
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Education Schemas
 class EducationModuleOut(BaseModel):
@@ -391,8 +379,7 @@ class EducationModuleOut(BaseModel):
     is_completed: Optional[bool] = False
     quiz_score: Optional[int] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuizSubmission(BaseModel):
     answers: Dict[str, str] # question_index: selected_option

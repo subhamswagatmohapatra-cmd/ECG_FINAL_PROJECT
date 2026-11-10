@@ -5,12 +5,14 @@ import { AIAnalysis, HealthReport } from '../types';
 import { AIInsightCard } from '../components/AIInsightCard';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { ReportViewerModal } from '../components/ReportViewerModal';
+import { useToast } from '../context/ToastContext';
 
 interface AIAnalysisPageProps {
   onNavigate: (tab: string) => void;
 }
 
 export const AIAnalysisPage: React.FC<AIAnalysisPageProps> = ({ onNavigate }) => {
+  const { showToast } = useToast();
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [generatingReport, setGeneratingReport] = useState<boolean>(false);
@@ -36,8 +38,9 @@ export const AIAnalysisPage: React.FC<AIAnalysisPageProps> = ({ onNavigate }) =>
       setGeneratingReport(true);
       const rep = await api.generateReport();
       setActiveReportModal(rep);
+      showToast('Report Generated Successfully', '12-section clinical health analysis compiled', 'success');
     } catch (e: any) {
-      alert(`Report compilation failed: ${e.message}`);
+      showToast('Report Compilation Failed', e.message, 'error');
     } finally {
       setGeneratingReport(false);
     }
@@ -72,7 +75,7 @@ export const AIAnalysisPage: React.FC<AIAnalysisPageProps> = ({ onNavigate }) =>
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
-      
+
       {/* Emergency Banner if Red or Orange */}
       {analysis.alert.alert_level !== 'GREEN' && (
         <EmergencyBanner alert={analysis.alert} />
@@ -135,10 +138,10 @@ export const AIAnalysisPage: React.FC<AIAnalysisPageProps> = ({ onNavigate }) =>
           Clinical Reference Standards Applied
         </h3>
         <p className="text-xs text-slate-400 leading-relaxed font-sans">
-          The CardioPulse engine maps vital readings against peer-reviewed cardiology guidelines 
+          The CardioPulse engine maps vital readings against peer-reviewed cardiology guidelines
           (American Heart Association, European Society of Cardiology, and Pediatric Advanced Life Support):
         </p>
-        
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div className="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700/60">
             <span className="font-bold text-teal-300 block font-mono">Age-Adjusted Norms</span>

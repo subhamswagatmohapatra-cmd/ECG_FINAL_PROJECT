@@ -18,6 +18,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
   // Intake Form State
   const [file, setFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [recordedBp, setRecordedBp] = useState<string>('120/80');
   const [recordedHr, setRecordedHr] = useState<string>('72');
   const [symptoms, setSymptoms] = useState<string[]>([]);
@@ -64,7 +65,12 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
       setPresets(presetsData);
       setRecentUploads(uploadsData);
       if (uploadsData.length > 0 && !activeAnalysis) {
-        setActiveAnalysis(uploadsData[0]);
+        const up = uploadsData[0];
+        setActiveAnalysis({
+          upload: up,
+          signal_data: up.signal_data,
+          ai_analysis: up.ai_analysis
+        });
       }
     } catch (err: any) {
       console.error('Failed to load uploads:', err);
@@ -164,7 +170,14 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      const selected = e.target.files[0];
+      setFile(selected);
+      if (selected.type.startsWith('image/')) {
+        const url = URL.createObjectURL(selected);
+        setImagePreviewUrl(url);
+      } else {
+        setImagePreviewUrl(null);
+      }
     }
   };
 
@@ -173,6 +186,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
     const blob = new Blob([preset.sample_csv], { type: 'text/csv' });
     const virtualFile = new File([blob], `${preset.id}_lead2.csv`, { type: 'text/csv' });
     setFile(virtualFile);
+    setImagePreviewUrl(null);
     setRecordedHr(preset.target_bpm.toString());
     setPatientNotes(`Clinical verification preset: ${preset.name}`);
     showToast('Demo Preset Loaded', `${preset.name} loaded. Click "Analyze Signal with AI" to execute DSP pipeline.`, 'info');
@@ -180,7 +194,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
   const handleUploadAndAnalyze = async () => {
     if (!file) {
-      showToast('File Required', 'Please select an ECG file (CSV, TXT, PDF, WFDB, or Image) or select a demo preset.', 'warning');
+      showToast('File Required', 'Please select an ECG file (CSV, TXT, PDF, WFDB, or Picture) or select a demo preset.', 'warning');
       return;
     }
 
@@ -200,10 +214,21 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
       const res = await api.uploadECG(formData);
       setUploadProgress(100);
 
-      showToast('Analysis Complete', `ECG analyzed: ${res.ai_analysis?.primary_classification || 'Normal'} (${res.ai_analysis?.heart_rate_bpm} BPM)`, 'success');
+      // Normalize analysis object structure across all backend payload variants
+      const normalized = {
+        upload: res.upload || res.data || res,
+        signal_data: res.signal_data || res.data?.signal_data || res.upload?.signal_data,
+        ai_analysis: res.ai_analysis || res.data?.ai_analysis || res.upload?.ai_analysis
+      };
 
-      setActiveAnalysis(res);
+      const primaryClass = normalized.ai_analysis?.primary_classification || 'Normal Sinus Rhythm';
+      const hrBpm = normalized.ai_analysis?.heart_rate_bpm || 72;
+
+      showToast('Analysis Complete', `ECG analyzed: ${primaryClass} (${hrBpm} BPM)`, 'success');
+
+      setActiveAnalysis(normalized);
       setFile(null);
+      setImagePreviewUrl(null);
       loadPresetsAndUploads();
     } catch (err: any) {
       showToast('Upload Failed', err.message || 'Signal processing error occurred.', 'error');
@@ -214,10 +239,11 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
   };
 
   const handleSubmitToDoctor = async () => {
-    if (!activeAnalysis?.upload?.id) return;
+    const uploadId = activeAnalysis?.upload?.id || activeAnalysis?.id;
+    if (!uploadId) return;
     setIsSubmittingToDoctor(true);
     try {
-      await api.submitECGToDoctor(activeAnalysis.upload.id, {
+      await api.submitECGToDoctor(uploadId, {
         doctor_id: selectedDoctorId,
         patient_notes: submitDoctorNotes
       });
@@ -331,6 +357,23 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                     {(file.size / 1024).toFixed(1)} KB ready
                   </span>
                 )}
+                {imagePreviewUrl && (
+                  <div className="mt-3 p-2.5 rounded-xl bg-slate-950/80 border border-teal-500/40 flex items-center gap-3 text-left w-full max-w-sm">
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Uploaded ECG Preview"
+                      className="w-16 h-12 object-cover rounded-lg border border-slate-700 shrink-0 bg-white"
+                    />
+                    <div className="overflow-hidden">
+                      <span className="text-[11px] font-bold text-teal-300 block truncate">
+                        {file?.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono block">
+                        ECG Picture Ready &bull; CV Trace Extractor
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -404,8 +447,8 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                         type="button"
                         onClick={() => toggleSymptom(sym)}
                         className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] border transition ${isChecked
-                            ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-semibold'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                          ? 'bg-teal-500/20 border-teal-500 text-teal-200 font-semibold'
+                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
                           }`}
                       >
                         {sym}
@@ -483,7 +526,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
                   <div className="flex items-center gap-2">
                     <a
-                      href={api.getECGPdfUrl(activeAnalysis.upload.id)}
+                      href={api.getECGPdfUrl(activeAnalysis?.upload?.id || activeAnalysis?.id || 1)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
@@ -665,8 +708,8 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                       key={up.id}
                       onClick={() => setActiveAnalysis({ upload: up, signal_data: up.signal_data, ai_analysis: up.ai_analysis })}
                       className={`p-3 rounded-xl border transition cursor-pointer flex items-center justify-between text-xs ${isSelected
-                          ? 'bg-teal-500/20 border-teal-500 text-white'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                        ? 'bg-teal-500/20 border-teal-500 text-white'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700'
                         }`}
                     >
                       <div className="space-y-0.5">

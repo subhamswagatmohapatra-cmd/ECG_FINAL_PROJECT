@@ -229,6 +229,9 @@ async def upload_ecg(
         "status": "success",
         "upload_id": record.id,
         "message": "ECG signal successfully uploaded and analyzed by CardioPulse AI engine",
+        "upload": record,
+        "signal_data": record.signal_data,
+        "ai_analysis": record.ai_analysis,
         "data": record
     }
 

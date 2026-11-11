@@ -155,6 +155,11 @@ export interface HealthReport {
   is_clinician_approved: boolean;
   generated_at: string;
   pdf_filename?: string;
+  ecg_upload_id?: number;
+  submission_status?: string;
+  assigned_doctor_id?: number;
+  patient_submission_notes?: string;
+  submitted_at?: string;
 }
 
 export interface DoctorReview {

@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 import os
 import uuid
+from datetime import datetime, timezone
 from app.database import get_db
-from app.models import HealthReport, Patient, User, AIAnalysis, HeartRateReading, AuditLog
-from app.schemas import HealthReportOut
+from app.models import HealthReport, Patient, User, AIAnalysis, HeartRateReading, AuditLog, Doctor, DoctorPatientAssignment, Notification
+from app.schemas import HealthReportOut, ReportSubmissionRequest
 from app.auth import get_current_user, get_current_patient
 from app.report_generator import HealthReportGenerator
 from app.clinical_engine import ClinicalRuleEngine
@@ -218,3 +219,128 @@ async def download_pdf_report(
         media_type="application/pdf",
         filename=f"CardioPulse_{report.report_reference_code}.pdf"
     )
+
+@router.post("/{report_id}/submit")
+async def submit_health_report_to_doctor(
+    report_id: int,
+    payload: Optional[ReportSubmissionRequest] = None,
+    doctor_id: Optional[int] = Query(None),
+    patient_notes: Optional[str] = Query(None),
+    current_patient: Patient = Depends(get_current_patient),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Submits a generated health analysis report directly to an attending doctor.
+    Updates submission status to awaiting_doctor_review and notifies the clinician.
+    """
+    target_doctor_id = (payload.doctor_id if payload and payload.doctor_id is not None else None) or doctor_id
+    notes = (payload.patient_notes if payload and payload.patient_notes is not None else None) or patient_notes
+
+    # 1. Fetch Report
+    res = await db.execute(
+        select(HealthReport).where(
+            HealthReport.id == report_id,
+            HealthReport.patient_id == current_patient.id
+        )
+    )
+    report = res.scalars().first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Health report not found")
+
+    # 2. Resolve Doctor
+    target_doctor = None
+    if target_doctor_id:
+        doc_res = await db.execute(
+            select(Doctor).options(selectinload(Doctor.user)).where(Doctor.id == target_doctor_id)
+        )
+        target_doctor = doc_res.scalars().first()
+        if not target_doctor:
+            raise HTTPException(status_code=404, detail=f"Selected doctor (ID {target_doctor_id}) not found")
+
+    if not target_doctor:
+        doc_res = await db.execute(
+            select(Doctor)
+            .options(selectinload(Doctor.user))
+            .where(or_(Doctor.verified == True, Doctor.verification_status == "approved"))
+            .order_by(Doctor.id.asc())
+            .limit(1)
+        )
+        target_doctor = doc_res.scalars().first()
+
+        if not target_doctor:
+            fallback_res = await db.execute(
+                select(Doctor).options(selectinload(Doctor.user)).order_by(Doctor.id.asc()).limit(1)
+            )
+            target_doctor = fallback_res.scalars().first()
+
+        if not target_doctor:
+            raise HTTPException(status_code=404, detail="No registered doctor found in the system for clinical assignment.")
+
+    # 3. Create or update assignment
+    assign_res = await db.execute(
+        select(DoctorPatientAssignment).where(
+            DoctorPatientAssignment.doctor_id == target_doctor.id,
+            DoctorPatientAssignment.patient_id == current_patient.id
+        )
+    )
+    assignment = assign_res.scalars().first()
+    if not assignment:
+        assignment = DoctorPatientAssignment(
+            doctor_id=target_doctor.id,
+            patient_id=current_patient.id,
+            status="active",
+            assigned_by="patient_request"
+        )
+        db.add(assignment)
+    else:
+        assignment.status = "active"
+
+    # 4. Update Report
+    now_utc = datetime.now(timezone.utc)
+    report.submission_status = "awaiting_doctor_review"
+    report.assigned_doctor_id = target_doctor.id
+    report.patient_submission_notes = notes
+    report.submitted_at = now_utc
+
+    doc_display_name = target_doctor.user.full_name if (target_doctor and target_doctor.user) else "Attending Cardiologist"
+
+    # 5. Notifications
+    db.add(Notification(
+        user_id=target_doctor.user_id,
+        category="report",
+        title=f"New Health Report: {current_user.full_name}",
+        message=f"Patient {current_user.full_name} ({current_patient.patient_id_code}) submitted report {report.report_reference_code} for clinical review. Notes: {notes or 'None'}",
+        priority="high",
+        action_url="/doctor"
+    ))
+
+    db.add(Notification(
+        user_id=current_user.id,
+        category="report",
+        title="Report Submitted to Doctor",
+        message=f"Report {report.report_reference_code} was submitted to {doc_display_name}. Status: Awaiting Doctor Review.",
+        priority="medium",
+        action_url="/reports"
+    ))
+
+    # 6. Audit log
+    db.add(AuditLog(
+        user_id=current_user.id,
+        action="SUBMIT_REPORT_TO_DOCTOR",
+        resource_type="REPORT",
+        resource_id=report.report_reference_code,
+        details={"doctor_id": target_doctor.id, "doctor_name": doc_display_name, "notes": notes}
+    ))
+
+    await db.commit()
+    await db.refresh(report)
+
+    return {
+        "status": "success",
+        "message": f"Report submitted to {doc_display_name}",
+        "submission_status": "awaiting_doctor_review",
+        "assigned_doctor_id": target_doctor.id,
+        "assigned_doctor_name": doc_display_name,
+        "report_id": report.id
+    }

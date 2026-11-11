@@ -200,7 +200,7 @@ const AppContent: React.FC = () => {
         {activeTab === 'comms' && <CommunicationPage />}
         {activeTab === 'education' && <EducationCenterPage />}
         {activeTab === 'devices' && <DeviceManagementPage />}
-        
+
         {/* Administrator Console (Strict Guard: Admin Only) */}
         {activeTab === 'admin' && (
           user?.role === 'admin' ? (

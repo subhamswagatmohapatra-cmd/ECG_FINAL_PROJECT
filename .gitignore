@@ -25,6 +25,8 @@ yarn-error.log*
 *.sqlite3
 static/reports/*.pdf
 !static/reports/.gitkeep
+static/ecg_uploads/*
+!static/ecg_uploads/.gitkeep
 
 # Environment Variables & Secrets
 .env

@@ -249,11 +249,10 @@ export const AdminDashboardPage: React.FC = () => {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-              activeTab === tab.key
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${activeTab === tab.key
                 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -439,13 +438,12 @@ export const AdminDashboardPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                          u.role === 'admin'
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${u.role === 'admin'
                             ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                             : u.role === 'doctor'
-                            ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
-                            : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                        }`}
+                              ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                          }`}
                       >
                         {u.role}
                       </span>
@@ -482,11 +480,10 @@ export const AdminDashboardPage: React.FC = () => {
                       {u.role !== 'admin' && (
                         <button
                           onClick={() => handleToggleUserStatus(u)}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition ${
-                            u.is_active
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition ${u.is_active
                               ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
                               : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          }`}
+                            }`}
                         >
                           {u.is_active ? 'Suspend' : 'Reactivate'}
                         </button>
@@ -535,11 +532,10 @@ export const AdminDashboardPage: React.FC = () => {
                       <div className="text-xs text-slate-400 font-mono">{doc.email}</div>
                     </div>
                     <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase inline-flex items-center gap-1 ${
-                        isVerified
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase inline-flex items-center gap-1 ${isVerified
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
+                        }`}
                     >
                       {isVerified ? (
                         <>
@@ -574,11 +570,10 @@ export const AdminDashboardPage: React.FC = () => {
                     {doctorId && (
                       <button
                         onClick={() => handleVerifyDoctor(doctorId, !isVerified)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
-                          isVerified
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${isVerified
                             ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30'
                             : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
-                        }`}
+                          }`}
                       >
                         {isVerified ? 'Revoke Clinical Approval' : 'Approve & Verify Credentials'}
                       </button>
@@ -703,7 +698,7 @@ export const AdminDashboardPage: React.FC = () => {
               </h3>
               <div className="space-y-2">
                 {ecgMonitoring?.rhythm_classification_distribution &&
-                Object.keys(ecgMonitoring.rhythm_classification_distribution).length > 0 ? (
+                  Object.keys(ecgMonitoring.rhythm_classification_distribution).length > 0 ? (
                   Object.entries(ecgMonitoring.rhythm_classification_distribution).map(([rhythm, count]: [string, any]) => (
                     <div key={rhythm} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
                       <span className="font-semibold text-slate-200">{rhythm}</span>
@@ -725,7 +720,7 @@ export const AdminDashboardPage: React.FC = () => {
               </h3>
               <div className="space-y-2">
                 {ecgMonitoring?.format_distribution &&
-                Object.keys(ecgMonitoring.format_distribution).length > 0 ? (
+                  Object.keys(ecgMonitoring.format_distribution).length > 0 ? (
                   Object.entries(ecgMonitoring.format_distribution).map(([fmt, count]: [string, any]) => (
                     <div key={fmt} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs">
                       <span className="font-mono text-slate-200 uppercase font-semibold">{fmt}</span>
@@ -776,12 +771,11 @@ export const AdminDashboardPage: React.FC = () => {
                       <td className="py-2 px-3 font-bold text-slate-100">{u.rhythm}</td>
                       <td className="py-2 px-3 text-emerald-400">{u.heart_rate_bpm ? `${u.heart_rate_bpm} BPM` : '—'}</td>
                       <td className="py-2 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          u.risk_tier === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                          u.risk_tier === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
-                          u.risk_tier === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                          'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.risk_tier === 'RED' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                            u.risk_tier === 'ORANGE' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                              u.risk_tier === 'YELLOW' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          }`}>
                           {u.risk_tier}
                         </span>
                       </td>

@@ -243,8 +243,21 @@ class HealthReportOut(BaseModel):
     is_clinician_approved: bool
     generated_at: datetime
     pdf_filename: Optional[str] = None
+    ecg_upload_id: Optional[int] = None
+    submission_status: Optional[str] = "draft"
+    assigned_doctor_id: Optional[int] = None
+    patient_submission_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+class ECGSubmissionRequest(BaseModel):
+    doctor_id: Optional[int] = None
+    patient_notes: Optional[str] = None
+
+class ReportSubmissionRequest(BaseModel):
+    doctor_id: Optional[int] = None
+    patient_notes: Optional[str] = None
 
 # Doctor Review Schemas
 class DoctorReviewCreate(BaseModel):

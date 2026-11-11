@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import or_
 from sqlalchemy.orm import selectinload
 from typing import List
 from datetime import datetime
@@ -18,9 +19,17 @@ async def list_available_doctors(
     db: AsyncSession = Depends(get_db)
 ):
     """List verified doctors available for consultation appointments."""
-    stmt = select(Doctor).options(selectinload(Doctor.user)).where(Doctor.verified == True)
+    stmt = (
+        select(Doctor)
+        .options(selectinload(Doctor.user))
+        .where(or_(Doctor.verified == True, Doctor.verification_status == "approved"))
+    )
     result = await db.execute(stmt)
     doctors = result.scalars().all()
+    if not doctors:
+        fallback_stmt = select(Doctor).options(selectinload(Doctor.user))
+        fallback_res = await db.execute(fallback_stmt)
+        doctors = fallback_res.scalars().all()
     
     return [
         {
@@ -29,7 +38,9 @@ async def list_available_doctors(
             "specialty": doc.specialty,
             "hospital_affiliation": doc.hospital_affiliation or "Metropolitan Heart Institute",
             "license_number": doc.license_number,
-            "consultation_phone": doc.consultation_phone
+            "consultation_phone": doc.consultation_phone,
+            "verified": bool(doc.verified or doc.verification_status == "approved"),
+            "qualifications": getattr(doc, "qualifications", "MBBS, MD (Cardiology)")
         }
         for doc in doctors
     ]

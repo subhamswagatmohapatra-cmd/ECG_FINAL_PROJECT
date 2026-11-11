@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, or_
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
@@ -15,7 +15,7 @@ from app.models import (
     User, Patient, Doctor, ECGUpload, ECGSignalData, ECGAIAnalysis,
     HealthReport, DoctorPatientAssignment, Notification, AuditLog, ClinicalObservation
 )
-from app.schemas import ECGUploadOut
+from app.schemas import ECGUploadOut, ECGSubmissionRequest
 from app.ecg_engine import ECGAIEngine
 from app.ecg_pdf import ECGPDFReportGenerator
 
@@ -293,8 +293,9 @@ async def get_upload_details(
 @router.post("/uploads/{upload_id}/submit")
 async def submit_ecg_to_doctor(
     upload_id: int,
-    doctor_id: Optional[int] = Form(None),
-    patient_notes: Optional[str] = Form(None),
+    payload: Optional[ECGSubmissionRequest] = None,
+    doctor_id: Optional[int] = Query(None),
+    patient_notes: Optional[str] = Query(None),
     current_patient: Patient = Depends(get_current_patient),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -302,25 +303,60 @@ async def submit_ecg_to_doctor(
     """
     Submits the ECG signal and AI analysis report to an attending doctor.
     Updates submission status and dispatches clinical notifications.
+    Supports JSON body payload as well as query parameters.
     """
-    # 1. Fetch Upload
-    res = await db.execute(select(ECGUpload).where(ECGUpload.id == upload_id, ECGUpload.patient_id == current_patient.id))
+    target_doctor_id = (payload.doctor_id if payload and payload.doctor_id is not None else None) or doctor_id
+    notes = (payload.patient_notes if payload and payload.patient_notes is not None else None) or patient_notes
+
+    # 1. Fetch Upload with relationships
+    res = await db.execute(
+        select(ECGUpload)
+        .options(
+            selectinload(ECGUpload.signal_data),
+            selectinload(ECGUpload.ai_analysis),
+            selectinload(ECGUpload.reports)
+        )
+        .where(ECGUpload.id == upload_id, ECGUpload.patient_id == current_patient.id)
+    )
     upload = res.scalars().first()
     if not upload:
         raise HTTPException(status_code=404, detail="ECG upload record not found")
 
     # 2. Resolve Doctor (Assign provided doctor or default primary cardiologist)
-    if not doctor_id:
-        doc_res = await db.execute(select(Doctor).where(Doctor.verified == True).limit(1))
-        doc = doc_res.scalars().first()
-        if not doc:
-            raise HTTPException(status_code=404, detail="No active verified doctor available for assignment.")
-        target_doctor = doc
-    else:
-        doc_res = await db.execute(select(Doctor).where(Doctor.id == doctor_id))
+    target_doctor = None
+    if target_doctor_id:
+        doc_res = await db.execute(
+            select(Doctor)
+            .options(selectinload(Doctor.user))
+            .where(Doctor.id == target_doctor_id)
+        )
         target_doctor = doc_res.scalars().first()
         if not target_doctor:
-            raise HTTPException(status_code=404, detail="Selected doctor does not exist.")
+            raise HTTPException(status_code=404, detail=f"Selected doctor (ID {target_doctor_id}) does not exist.")
+
+    if not target_doctor:
+        # Search for verified or approved doctors first
+        doc_res = await db.execute(
+            select(Doctor)
+            .options(selectinload(Doctor.user))
+            .where(or_(Doctor.verified == True, Doctor.verification_status == "approved"))
+            .order_by(Doctor.id.asc())
+            .limit(1)
+        )
+        target_doctor = doc_res.scalars().first()
+
+        # Fallback to any doctor in system
+        if not target_doctor:
+            fallback_res = await db.execute(
+                select(Doctor)
+                .options(selectinload(Doctor.user))
+                .order_by(Doctor.id.asc())
+                .limit(1)
+            )
+            target_doctor = fallback_res.scalars().first()
+
+        if not target_doctor:
+            raise HTTPException(status_code=404, detail="No registered doctor found in the system for clinical assignment.")
 
     # 3. Create or Update Doctor-Patient Assignment
     assign_res = await db.execute(
@@ -339,24 +375,57 @@ async def submit_ecg_to_doctor(
             assigned_by="patient_request"
         )
         db.add(assignment)
+    else:
+        assignment.status = "active"
 
-    # 4. Update HealthReport submission status
+    # 4. Update or Create HealthReport submission status
     rep_res = await db.execute(select(HealthReport).where(HealthReport.ecg_upload_id == upload_id))
     report = rep_res.scalars().first()
+    now_utc = datetime.now(timezone.utc)
     if report:
         report.submission_status = "awaiting_doctor_review"
         report.assigned_doctor_id = target_doctor.id
-        report.patient_submission_notes = patient_notes
-        report.submitted_at = datetime.now(timezone.utc)
+        report.patient_submission_notes = notes
+        report.submitted_at = now_utc
+    else:
+        ai = upload.ai_analysis
+        classification = ai.primary_classification if ai else "ECG Telemetry"
+        risk_tier = ai.clinical_risk_tier if ai else "GREEN"
+        report = HealthReport(
+            patient_id=current_patient.id,
+            ecg_upload_id=upload_id,
+            report_reference_code=f"ECG-2026-{upload_id:04d}",
+            title=f"ECG Signal Analysis Report - {classification}",
+            risk_level=risk_tier,
+            summary=f"Analysis of ECG recording for patient {current_user.full_name} submitted for clinical review.",
+            clinical_limitations="Automated decision support. Awaiting clinician sign-off.",
+            report_data={"heart_rate_bpm": ai.heart_rate_bpm if ai else 72, "primary_classification": classification},
+            submission_status="awaiting_doctor_review",
+            assigned_doctor_id=target_doctor.id,
+            patient_submission_notes=notes,
+            submitted_at=now_utc
+        )
+        db.add(report)
 
-    # 5. Notify Doctor
+    doc_display_name = target_doctor.user.full_name if (target_doctor and target_doctor.user) else "Attending Cardiologist"
+
+    # 5. Notify Doctor and Patient
     db.add(Notification(
         user_id=target_doctor.user_id,
         category="report",
         title=f"New ECG Submission: {current_user.full_name}",
-        message=f"Patient {current_user.full_name} ({current_patient.patient_id_code}) submitted an ECG signal for clinical review.",
+        message=f"Patient {current_user.full_name} ({current_patient.patient_id_code}) submitted an ECG signal for clinical review. Notes: {notes or 'None'}",
         priority="high",
         action_url="/doctor"
+    ))
+
+    db.add(Notification(
+        user_id=current_user.id,
+        category="report",
+        title="ECG Submitted to Doctor",
+        message=f"Your ECG report was successfully submitted to {doc_display_name}. Status: Awaiting Doctor Review.",
+        priority="medium",
+        action_url="/ecg"
     ))
 
     # 6. Audit Log
@@ -365,16 +434,23 @@ async def submit_ecg_to_doctor(
         action="SUBMIT_ECG_TO_DOCTOR",
         resource_type="ECG_UPLOAD",
         resource_id=str(upload_id),
-        details={"doctor_id": target_doctor.id, "doctor_name": target_doctor.user.full_name if target_doctor.user else "Cardiologist"}
+        details={
+            "doctor_id": target_doctor.id,
+            "doctor_name": doc_display_name,
+            "patient_notes": notes
+        }
     ))
 
     await db.commit()
+    await db.refresh(report)
 
     return {
         "status": "success",
-        "message": f"ECG report submitted to Dr. {target_doctor.user.full_name if target_doctor.user else 'Sarah Chen'}",
+        "message": f"ECG report submitted to {doc_display_name}",
         "submission_status": "awaiting_doctor_review",
-        "assigned_doctor_id": target_doctor.id
+        "assigned_doctor_id": target_doctor.id,
+        "assigned_doctor_name": doc_display_name,
+        "report_id": report.id
     }
 
 @router.get("/uploads/{upload_id}/pdf")

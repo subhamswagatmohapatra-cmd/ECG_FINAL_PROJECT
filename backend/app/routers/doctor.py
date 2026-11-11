@@ -266,6 +266,11 @@ async def get_doctor_ecg_submissions(
         patient = rep.patient
         patient_user = patient.user if patient else None
 
+        ai_data = rep.report_data if isinstance(rep.report_data, dict) else {}
+        fallback_classification = ai_data.get("primary_classification") or rep.title or "ECG Rhythm Telemetry"
+        fallback_bpm = ai_data.get("heart_rate_bpm") or upload.recorded_hr if upload else 72
+        fallback_risk = ai_data.get("clinical_risk_tier") or rep.risk_level or "GREEN"
+
         submissions.append({
             "report_id": rep.id,
             "upload_id": upload.id if upload else None,
@@ -279,18 +284,18 @@ async def get_doctor_ecg_submissions(
             "patient_notes": rep.patient_submission_notes or (upload.patient_notes if upload else None),
             "submitted_at": rep.submitted_at.isoformat() if rep.submitted_at else (rep.generated_at.isoformat() if rep.generated_at else None),
             "bp": upload.recorded_bp if upload else None,
-            "hr": upload.recorded_hr if upload else (ai.heart_rate_bpm if ai else None),
+            "hr": upload.recorded_hr if upload else (ai.heart_rate_bpm if ai else fallback_bpm),
             "symptoms": upload.symptoms_reported if upload else [],
             "ai_findings": {
-                "classification": ai.primary_classification if ai else rep.overall_risk_assessment,
-                "confidence_pct": ai.model_confidence_pct if ai else 95.0,
-                "risk_tier": ai.clinical_risk_tier if ai else rep.risk_level,
-                "heart_rate_bpm": ai.heart_rate_bpm if ai else rep.mean_heart_rate,
-                "qrs_duration_ms": ai.qrs_duration_ms if ai else None,
-                "qtc_interval_ms": ai.qtc_interval_ms if ai else None,
+                "classification": ai.primary_classification if ai else fallback_classification,
+                "confidence_pct": ai.model_confidence_pct if ai else float(ai_data.get("model_confidence_pct", 95.0)),
+                "risk_tier": ai.clinical_risk_tier if ai else fallback_risk,
+                "heart_rate_bpm": ai.heart_rate_bpm if ai else fallback_bpm,
+                "qrs_duration_ms": ai.qrs_duration_ms if ai else ai_data.get("qrs_duration_ms"),
+                "qtc_interval_ms": ai.qtc_interval_ms if ai else ai_data.get("qtc_interval_ms"),
                 "signal_quality": ai.signal_quality if ai else "GOOD",
-                "explainability": ai.explainability_notes if ai else []
-            } if ai else None,
+                "explainability": ai.explainability_notes if ai else ai_data.get("explainability_notes", [])
+            } if (ai or ai_data) else None,
             "raw_signal_preview": (sig.raw_samples[:300] if sig and sig.raw_samples else [])
         })
 

@@ -148,6 +148,13 @@ class ApiService {
     return `${API_BASE}/reports/${reportId}/download-pdf`;
   }
 
+  async submitHealthReportToDoctor(reportId: number, data: { doctor_id?: number; patient_notes?: string } = {}) {
+    return this.request<any>(`/reports/${reportId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Doctor Portal
   async getDoctorPatients(query?: string) {
     const q = query ? `?query=${encodeURIComponent(query)}` : '';

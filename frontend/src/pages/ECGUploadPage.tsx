@@ -35,6 +35,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
   // Submit to Doctor modal state
   const [showSubmitModal, setShowSubmitModal] = useState<boolean>(false);
+  const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | undefined>(undefined);
   const [submitDoctorNotes, setSubmitDoctorNotes] = useState<string>('');
   const [isSubmittingToDoctor, setIsSubmittingToDoctor] = useState<boolean>(false);
@@ -58,12 +59,19 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
   const loadPresetsAndUploads = async () => {
     setIsLoadingUploads(true);
     try {
-      const [presetsData, uploadsData] = await Promise.all([
+      const [presetsData, uploadsData, doctorsData] = await Promise.all([
         api.getECGDemoPresets().catch(() => []),
-        api.getECGUploads().catch(() => [])
+        api.getECGUploads().catch(() => []),
+        api.getAvailableDoctors().catch(() => [])
       ]);
       setPresets(presetsData);
       setRecentUploads(uploadsData);
+      if (doctorsData && doctorsData.length > 0) {
+        setAvailableDoctors(doctorsData);
+        if (!selectedDoctorId) {
+          setSelectedDoctorId(doctorsData[0].id);
+        }
+      }
       if (uploadsData.length > 0 && !activeAnalysis) {
         const up = uploadsData[0];
         setActiveAnalysis({
@@ -239,19 +247,42 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
   };
 
   const handleSubmitToDoctor = async () => {
-    const uploadId = activeAnalysis?.upload?.id || activeAnalysis?.id;
-    if (!uploadId) return;
+    const uploadId = activeAnalysis?.upload?.id || activeAnalysis?.id || activeAnalysis?.upload_id;
+    if (!uploadId) {
+      showToast('Error', 'No active ECG upload selected for submission.', 'error');
+      return;
+    }
     setIsSubmittingToDoctor(true);
     try {
-      await api.submitECGToDoctor(uploadId, {
-        doctor_id: selectedDoctorId,
-        patient_notes: submitDoctorNotes
+      const res = await api.submitECGToDoctor(uploadId, {
+        doctor_id: selectedDoctorId ? Number(selectedDoctorId) : undefined,
+        patient_notes: submitDoctorNotes.trim() || undefined
       });
-      showToast('Submitted to Doctor', 'Your ECG record and AI analysis were transmitted to the cardiologist review queue.', 'success');
+      showToast(
+        'Submitted to Doctor',
+        res.message || 'Your ECG record and AI analysis were transmitted to the cardiologist review queue.',
+        'success'
+      );
       setShowSubmitModal(false);
-      loadPresetsAndUploads();
+      setSubmitDoctorNotes('');
+      await loadPresetsAndUploads();
+      if (activeAnalysis?.upload) {
+        setActiveAnalysis({
+          ...activeAnalysis,
+          upload: {
+            ...activeAnalysis.upload,
+            reports: [
+              {
+                submission_status: 'awaiting_doctor_review',
+                assigned_doctor_id: selectedDoctorId,
+                patient_submission_notes: submitDoctorNotes
+              }
+            ]
+          }
+        });
+      }
     } catch (err: any) {
-      showToast('Submission Failed', err.message || 'Failed to submit report.', 'error');
+      showToast('Submission Failed', err.message || 'Failed to submit report to doctor.', 'error');
     } finally {
       setIsSubmittingToDoctor(false);
     }
@@ -524,7 +555,19 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {activeAnalysis?.upload?.reports?.[0]?.submission_status === 'awaiting_doctor_review' && (
+                      <span className="bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 font-mono">
+                        <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                        <span>Awaiting Doctor Review</span>
+                      </span>
+                    )}
+                    {activeAnalysis?.upload?.reports?.[0]?.is_clinician_approved && (
+                      <span className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 font-mono">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Clinician Approved</span>
+                      </span>
+                    )}
                     <a
                       href={api.getECGPdfUrl(activeAnalysis?.upload?.id || activeAnalysis?.id || 1)}
                       target="_blank"
@@ -539,7 +582,7 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                       className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-md shadow-teal-500/20 flex items-center gap-1.5 transition"
                     >
                       <UserCheck className="w-3.5 h-3.5" />
-                      Submit to Doctor
+                      {activeAnalysis?.upload?.reports?.[0]?.submission_status === 'awaiting_doctor_review' ? 'Update Submission' : 'Submit to Doctor'}
                     </button>
                   </div>
                 </div>
@@ -725,6 +768,16 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {up.reports?.[0]?.submission_status === 'awaiting_doctor_review' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" /> Awaiting Doctor
+                          </span>
+                        )}
+                        {up.reports?.[0]?.is_clinician_approved && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Reviewed
+                          </span>
+                        )}
                         <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${getTierColor(up.ai_analysis?.clinical_risk_tier || 'GREEN')}`}>
                           {up.ai_analysis?.clinical_risk_tier || 'GREEN'}
                         </span>
@@ -741,41 +794,93 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
 
       {/* Submit to Doctor Modal */}
       {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Stethoscope className="w-5 h-5 text-teal-400" />
-              Submit ECG to Attending Cardiologist
-            </h3>
-            <p className="text-xs text-slate-400">
-              Transmit your ECG waveform, AI telemetry measurements, and intake notes to the doctor review queue for formal clinical sign-off.
-            </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl relative overflow-hidden">
+            <div className="absolute -right-12 -top-12 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Stethoscope className="w-5 h-5 text-teal-400" />
+                  Submit ECG to Attending Cardiologist
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Transmit full digitized waveforms, AI rhythm calculations, and intake notes for clinical review.
+                </p>
+              </div>
+            </div>
 
-            <div>
-              <label className="text-xs text-slate-300 font-medium">Notes for the Cardiologist</label>
+            {/* Target ECG Summary */}
+            <div className="bg-slate-950/80 rounded-2xl p-3.5 border border-slate-800 flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-mono text-slate-500 block">Record File</span>
+                <span className="font-bold text-slate-200">{activeAnalysis?.upload?.original_filename || 'Calibrated ECG Lead II'}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] uppercase font-mono text-slate-500 block">AI Findings</span>
+                <span className="font-bold text-teal-300">
+                  {activeAnalysis?.ai_analysis?.primary_classification || 'Normal Sinus Rhythm'} ({activeAnalysis?.ai_analysis?.heart_rate_bpm || 72} BPM)
+                </span>
+              </div>
+            </div>
+
+            {/* Doctor Selection Dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Select Attending Cardiologist</span>
+                <span className="text-[10px] font-mono text-teal-400">
+                  {availableDoctors.length} On-Duty Available
+                </span>
+              </label>
+              <select
+                value={selectedDoctorId || ''}
+                onChange={(e) => setSelectedDoctorId(Number(e.target.value))}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition"
+              >
+                {availableDoctors.map((doc) => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.full_name} • {doc.specialty} ({doc.hospital_affiliation})
+                  </option>
+                ))}
+              </select>
+              {availableDoctors.length === 0 && (
+                <p className="text-[11px] text-amber-400 font-mono">
+                  Default primary attending cardiologist will be automatically assigned.
+                </p>
+              )}
+            </div>
+
+            {/* Clinical Intake Notes */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Clinical Notes & Symptom Description</span>
+                <span className="text-[10px] text-slate-400">Optional</span>
+              </label>
               <textarea
                 value={submitDoctorNotes}
                 onChange={(e) => setSubmitDoctorNotes(e.target.value)}
                 rows={3}
-                placeholder="Mention recent palpitations, chest discomfort, or medication changes..."
-                className="w-full mt-1.5 px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-teal-500 outline-none resize-none"
+                placeholder="Mention recent palpitations, chest discomfort, shortness of breath, or medication changes..."
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none resize-none transition"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
               <button
+                type="button"
                 onClick={() => setShowSubmitModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSubmitToDoctor}
                 disabled={isSubmittingToDoctor}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold text-xs shadow-md shadow-teal-500/20 disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold text-xs shadow-lg shadow-teal-500/25 disabled:opacity-50 flex items-center gap-2 transition"
               >
                 {isSubmittingToDoctor ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
-                Confirm Submission
+                <span>{isSubmittingToDoctor ? 'Transmitting...' : 'Confirm Submission'}</span>
               </button>
             </div>
           </div>

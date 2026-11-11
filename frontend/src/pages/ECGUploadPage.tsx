@@ -273,13 +273,23 @@ export const ECGUploadPage: React.FC<ECGUploadPageProps> = ({ onNavigate }) => {
               <Activity className="w-4 h-4 text-emerald-400" />
               Bedside ICU Monitor
             </button>
-            <button
-              onClick={() => onNavigate && onNavigate('doctor')}
-              className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 flex items-center gap-2 transition"
-            >
-              <Stethoscope className="w-4 h-4" />
-              Doctor Portal
-            </button>
+            {(user?.role === 'doctor' || user?.role === 'admin') ? (
+              <button
+                onClick={() => onNavigate && onNavigate('doctor')}
+                className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 flex items-center gap-2 transition"
+              >
+                <Stethoscope className="w-4 h-4" />
+                Doctor Portal
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate && onNavigate('comms')}
+                className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 flex items-center gap-2 transition"
+              >
+                <Stethoscope className="w-4 h-4" />
+                Consult Cardiologist
+              </button>
+            )}
           </div>
         </div>
       </div>

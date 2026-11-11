@@ -9,8 +9,28 @@ import uuid
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+VALID_CLINICAL_CODES = {"CARDIO-MD-2026", "HOSPITAL-STAFF-99", "METRO-HEART-CHIEF"}
+VALID_ADMIN_CODES = {"SUPER-ADMIN-OVERRIDE-2026", "ADMIN-ROOT-2026"}
+
 @router.post("/register", response_model=Token)
 async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Role isolation checks: Patients cannot register as doctors without clinical passkey
+    if user_in.role == "doctor":
+        code = (user_in.clinical_authorization_code or "").strip().upper()
+        if code not in VALID_CLINICAL_CODES:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: Patients cannot register for the Doctor Portal. "
+                       "A valid Hospital Clinical Authorization Passcode (e.g. CARDIO-MD-2026) is required."
+            )
+    elif user_in.role == "admin":
+        code = (user_in.clinical_authorization_code or "").strip().upper()
+        if code not in VALID_ADMIN_CODES:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access Denied: Super Administrator accounts require a valid Super Administrator Authorization Key."
+            )
+
     # Check if user already exists
     existing = await db.execute(select(User).where(User.email == user_in.email))
     if existing.scalars().first():

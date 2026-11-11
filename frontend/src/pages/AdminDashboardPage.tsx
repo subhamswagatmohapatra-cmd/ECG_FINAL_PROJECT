@@ -18,6 +18,19 @@ export const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'doctors' | 'audit' | 'ecg_monitoring'>('overview');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [showProvisionModal, setShowProvisionModal] = useState<boolean>(false);
+  const [provisionLoading, setProvisionLoading] = useState<boolean>(false);
+  const [provisionForm, setProvisionForm] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    license_number: '',
+    specialty: 'Clinical Cardiology & Electrophysiology',
+    hospital_affiliation: 'Metropolitan Heart & Vascular Institute',
+    qualifications: 'MBBS, MD (Cardiology), FACC',
+    years_of_experience: 10,
+    auto_verify: true
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -57,6 +70,46 @@ export const AdminDashboardPage: React.FC = () => {
       );
     } catch (err: any) {
       showToast('Status Update Failed', err.message, 'error');
+    }
+  };
+
+  const handleRoleChange = async (userId: number, newRole: string) => {
+    try {
+      await api.updateAdminUser(userId, { role: newRole });
+      await loadData();
+      showToast('Super Control: Role Assigned', `User successfully assigned role ${newRole.toUpperCase()}. Profile entities synchronized.`, 'success');
+    } catch (err: any) {
+      showToast('Role Update Failed', err.message, 'error');
+    }
+  };
+
+  const handleProvisionDoctor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!provisionForm.full_name || !provisionForm.email || !provisionForm.password || !provisionForm.license_number) {
+      showToast('Validation Error', 'Full legal name, email, password, and license number are required.', 'error');
+      return;
+    }
+    setProvisionLoading(true);
+    try {
+      await api.provisionDoctor(provisionForm);
+      showToast('Physician Account Provisioned', `Dr. ${provisionForm.full_name} was directly created and verified.`, 'success');
+      setShowProvisionModal(false);
+      setProvisionForm({
+        full_name: '',
+        email: '',
+        password: '',
+        license_number: '',
+        specialty: 'Clinical Cardiology & Electrophysiology',
+        hospital_affiliation: 'Metropolitan Heart & Vascular Institute',
+        qualifications: 'MBBS, MD (Cardiology), FACC',
+        years_of_experience: 10,
+        auto_verify: true
+      });
+      await loadData();
+    } catch (err: any) {
+      showToast('Provisioning Failed', err.message, 'error');
+    } finally {
+      setProvisionLoading(false);
     }
   };
 
@@ -351,8 +404,17 @@ export const AdminDashboardPage: React.FC = () => {
               </select>
             </div>
 
-            <div className="text-xs text-slate-400 font-mono">
-              Showing {filteredUsers.length} of {users.length} registered accounts
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowProvisionModal(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-lg shadow-teal-500/20 transition"
+              >
+                <Stethoscope className="w-4 h-4" />
+                Provision Physician Account
+              </button>
+              <div className="text-xs text-slate-400 font-mono hidden lg:block">
+                Showing {filteredUsers.length} of {users.length} accounts
+              </div>
             </div>
           </div>
 
@@ -362,9 +424,10 @@ export const AdminDashboardPage: React.FC = () => {
                 <tr className="border-b border-slate-800 text-[11px] font-mono uppercase tracking-wider text-slate-400">
                   <th className="py-3 px-4">User</th>
                   <th className="py-3 px-4">Role</th>
+                  <th className="py-3 px-4">Super Control (Role)</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Registration</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 text-right">Lifecycle</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-xs">
@@ -386,6 +449,18 @@ export const AdminDashboardPage: React.FC = () => {
                       >
                         {u.role}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        className="bg-slate-900 border border-slate-700 text-[11px] font-mono font-bold uppercase rounded-lg px-2.5 py-1 text-slate-200 focus:outline-none focus:border-teal-400 hover:border-slate-500 transition cursor-pointer"
+                        title="Super Administrator Override: Reassign User Role"
+                      >
+                        <option value="patient">PATIENT</option>
+                        <option value="doctor">DOCTOR</option>
+                        <option value="admin">ADMIN</option>
+                      </select>
                     </td>
                     <td className="py-3.5 px-4">
                       {u.is_active ? (
@@ -413,7 +488,7 @@ export const AdminDashboardPage: React.FC = () => {
                               : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                           }`}
                         >
-                          {u.is_active ? 'Suspend Account' : 'Reactivate'}
+                          {u.is_active ? 'Suspend' : 'Reactivate'}
                         </button>
                       )}
                     </td>
@@ -428,17 +503,29 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Tab Content: Doctors */}
       {activeTab === 'doctors' && (
         <div className="glass-panel p-6 rounded-3xl border border-slate-700/60 space-y-6">
-          <div>
-            <h3 className="text-base font-bold text-white">Physician Licensing & Credential Verification</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Validate state medical board credentials, NPI registrations, and hospital privileges before clinical report sign-off access is granted.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-white">Physician Licensing & Credential Verification</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Validate medical board credentials, NPI registrations, and hospital privileges before clinical report sign-off access is granted.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowProvisionModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-teal-500/20 transition shrink-0"
+            >
+              <Stethoscope className="w-4 h-4" />
+              Provision Physician Account
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {doctorsList.map((doc) => {
-              const profile = doc.doctor_profile;
-              const isVerified = profile?.verified ?? false;
+              const isVerified = doc.doctor_verified ?? doc.doctor_profile?.verified ?? false;
+              const doctorId = doc.doctor_id ?? doc.doctor_profile?.id;
+              const licenseNum = doc.doctor_license ?? doc.doctor_profile?.license_number ?? 'MD-CARDIO-2026';
+              const specialty = doc.specialty ?? doc.doctor_profile?.specialty ?? 'Preventive Cardiology & Arrhythmia';
+              const hospital = doc.hospital_affiliation ?? doc.doctor_profile?.hospital_affiliation ?? 'Metropolitan Heart & Vascular Institute';
 
               return (
                 <div key={doc.id} className="p-5 rounded-2xl bg-slate-800/40 border border-slate-700/60 space-y-3">
@@ -462,7 +549,7 @@ export const AdminDashboardPage: React.FC = () => {
                       ) : (
                         <>
                           <AlertTriangle className="w-3 h-3" />
-                          PENDING
+                          PENDING VERIFICATION
                         </>
                       )}
                     </span>
@@ -471,29 +558,29 @@ export const AdminDashboardPage: React.FC = () => {
                   <div className="space-y-1.5 text-xs text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
                     <div>
                       <span className="text-slate-500">License Number:</span>{' '}
-                      <span className="font-mono text-cyan-300">{profile?.license_number || 'MD-CARDIO-88921'}</span>
+                      <span className="font-mono text-cyan-300">{licenseNum}</span>
                     </div>
                     <div>
                       <span className="text-slate-500">Clinical Specialty:</span>{' '}
-                      <span>{profile?.specialty || 'Preventive Cardiology & Arrhythmia'}</span>
+                      <span>{specialty}</span>
                     </div>
                     <div>
                       <span className="text-slate-500">Affiliation:</span>{' '}
-                      <span>{profile?.hospital_affiliation || 'Metropolitan Heart & Vascular Institute'}</span>
+                      <span>{hospital}</span>
                     </div>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-1">
-                    {profile && (
+                    {doctorId && (
                       <button
-                        onClick={() => handleVerifyDoctor(profile.id, !isVerified)}
+                        onClick={() => handleVerifyDoctor(doctorId, !isVerified)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
                           isVerified
                             ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30'
                             : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
                         }`}
                       >
-                        {isVerified ? 'Revoke Credentials' : 'Approve & Verify Credentials'}
+                        {isVerified ? 'Revoke Clinical Approval' : 'Approve & Verify Credentials'}
                       </button>
                     )}
                   </div>
@@ -704,6 +791,171 @@ export const AdminDashboardPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUPER-CONTROL: Direct Physician Provisioning Modal */}
+      {showProvisionModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-xl rounded-3xl border border-teal-500/40 p-6 sm:p-8 space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 bg-[#080e22]">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400">
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-white">Super Control: Provision Physician</h3>
+                  <p className="text-xs text-slate-400 font-mono">Direct credential issuance bypassing patient registration restriction</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowProvisionModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProvisionDoctor} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Full Legal Name & Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={provisionForm.full_name}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, full_name: e.target.value })}
+                    placeholder="e.g. Dr. Arthur Vance, MD"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Hospital / Clinical Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={provisionForm.email}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, email: e.target.value })}
+                    placeholder="physician@cardiopulse.health"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Temporary Password *</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={provisionForm.password}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, password: e.target.value })}
+                    placeholder="Min 6 characters"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Medical License / Registration *</label>
+                  <input
+                    type="text"
+                    required
+                    value={provisionForm.license_number}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, license_number: e.target.value })}
+                    placeholder="e.g. MD-BOARD-2026-99"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono uppercase focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Primary Specialty</label>
+                  <input
+                    type="text"
+                    value={provisionForm.specialty}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, specialty: e.target.value })}
+                    placeholder="Cardiology & Electrophysiology"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Hospital Affiliation</label>
+                  <input
+                    type="text"
+                    value={provisionForm.hospital_affiliation}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, hospital_affiliation: e.target.value })}
+                    placeholder="Metropolitan Heart & Vascular Institute"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Qualifications</label>
+                  <input
+                    type="text"
+                    value={provisionForm.qualifications}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, qualifications: e.target.value })}
+                    placeholder="MBBS, MD (Cardiology), FACC"
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Years of Experience</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={provisionForm.years_of_experience}
+                    onChange={(e) => setProvisionForm({ ...provisionForm, years_of_experience: Number(e.target.value) })}
+                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-teal-400"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-white block">Auto-Verify Credentials</span>
+                  <span className="text-[11px] text-slate-400">Instantly grant diagnostic sign-off authorization</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={provisionForm.auto_verify}
+                  onChange={(e) => setProvisionForm({ ...provisionForm, auto_verify: e.target.checked })}
+                  className="w-4 h-4 accent-teal-500 rounded"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProvisionModal(false)}
+                  className="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={provisionLoading}
+                  className="w-2/3 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-teal-500/20 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {provisionLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Provisioning Account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Create & Authorize Doctor</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

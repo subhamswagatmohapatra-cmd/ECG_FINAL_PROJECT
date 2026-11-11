@@ -14,6 +14,18 @@ class UserCreate(BaseModel):
     qualifications: Optional[str] = None
     years_of_experience: Optional[int] = None
     medical_council: Optional[str] = None
+    clinical_authorization_code: Optional[str] = None
+
+class AdminDoctorProvision(BaseModel):
+    full_name: str
+    email: str
+    password: str = Field(..., min_length=6)
+    specialty: str = "Cardiology"
+    license_number: str
+    hospital_affiliation: str = "Metropolitan Heart & Vascular Institute"
+    qualifications: str = "MBBS, MD (Cardiology)"
+    years_of_experience: int = 10
+    auto_verify: bool = True
 
 class UserLogin(BaseModel):
     email: str

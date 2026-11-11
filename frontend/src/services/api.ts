@@ -447,6 +447,23 @@ class ApiService {
   async getAdminECGMonitoring() {
     return this.request<any>('/admin/ecg-monitoring');
   }
+
+  async provisionDoctor(data: {
+    full_name: string;
+    email: string;
+    password: string;
+    specialty?: string;
+    license_number: string;
+    hospital_affiliation?: string;
+    qualifications?: string;
+    years_of_experience?: number;
+    auto_verify?: boolean;
+  }) {
+    return this.request<any>('/admin/provision-doctor', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiService();

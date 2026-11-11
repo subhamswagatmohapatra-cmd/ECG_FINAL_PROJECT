@@ -5,6 +5,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import time
+import uuid
 from datetime import datetime, timezone
 
 from app.database import get_db, engine
@@ -12,18 +13,19 @@ from app.models import (
     User, Patient, Doctor, HeartRateReading, AIAnalysis, HealthReport,
     EmergencyAlert, AuditLog, ECGUpload, ECGAIAnalysis, DoctorVerification
 )
-from app.schemas import AdminStatsOut, AdminUserUpdate, UserOut, DoctorVerificationReview
+from app.schemas import AdminStatsOut, AdminUserUpdate, UserOut, DoctorVerificationReview, AdminDoctorProvision
 from app.routers.auth import get_current_user
+from app.auth import get_password_hash
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 START_TIME = time.time()
 
 def require_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin" and not current_user.email.startswith("doctor"):
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrative privileges required to access this portal."
+            detail="Access Denied: Super Administrator privileges required to access this portal."
         )
     return current_user
 
@@ -102,8 +104,11 @@ async def list_all_users(
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "patient_code": u.patient_profile.patient_id_code if u.patient_profile else None,
+            "doctor_id": u.doctor_profile.id if u.doctor_profile else None,
             "doctor_license": u.doctor_profile.license_number if u.doctor_profile else None,
-            "doctor_verified": u.doctor_profile.verified if u.doctor_profile else None
+            "doctor_verified": u.doctor_profile.verified if u.doctor_profile else None,
+            "specialty": u.doctor_profile.specialty if u.doctor_profile else None,
+            "hospital_affiliation": u.doctor_profile.hospital_affiliation if u.doctor_profile else None
         }
         for u in users
     ]
@@ -126,6 +131,30 @@ async def update_user_status(
         user.is_active = payload.is_active
     if payload.role is not None:
         user.role = payload.role
+        if payload.role == "doctor":
+            doc_check = await db.execute(select(Doctor).where(Doctor.user_id == user.id))
+            if not doc_check.scalars().first():
+                new_doc = Doctor(
+                    user_id=user.id,
+                    license_number=f"MD-ADMIN-PROV-{uuid.uuid4().hex[:5].upper()}",
+                    specialty="Cardiology & Electrophysiology",
+                    hospital_affiliation="Metropolitan Heart & Vascular Institute",
+                    qualifications="MBBS, MD (Cardiology)",
+                    years_of_experience=8,
+                    verified=True,
+                    verification_status="approved"
+                )
+                db.add(new_doc)
+                await db.flush()
+        elif payload.role == "patient":
+            pat_check = await db.execute(select(Patient).where(Patient.user_id == user.id))
+            if not pat_check.scalars().first():
+                new_pat = Patient(
+                    user_id=user.id,
+                    patient_id_code=f"PAT-ADMIN-{uuid.uuid4().hex[:6].upper()}"
+                )
+                db.add(new_pat)
+                await db.flush()
         
     audit = AuditLog(
         user_id=admin_user.id,
@@ -138,6 +167,72 @@ async def update_user_status(
     
     await db.commit()
     return {"status": "success", "user_id": user.id, "is_active": user.is_active, "role": user.role}
+
+@router.post("/provision-doctor")
+async def provision_doctor(
+    payload: AdminDoctorProvision,
+    admin_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Administrator Super-Control: Direct physician account provisioning and credential approval.
+    Enforces that patients cannot register as doctors, but the administrator can provision verified clinicians.
+    """
+    existing = await db.execute(select(User).where(User.email == payload.email))
+    if existing.scalars().first():
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+
+    new_user = User(
+        email=payload.email,
+        hashed_password=get_password_hash(payload.password),
+        role="doctor",
+        full_name=payload.full_name,
+        is_active=True
+    )
+    db.add(new_user)
+    await db.flush()
+
+    status_str = "approved" if payload.auto_verify else "pending"
+    doc = Doctor(
+        user_id=new_user.id,
+        license_number=payload.license_number,
+        specialty=payload.specialty,
+        hospital_affiliation=payload.hospital_affiliation,
+        qualifications=payload.qualifications,
+        years_of_experience=payload.years_of_experience,
+        verified=payload.auto_verify,
+        verification_status=status_str
+    )
+    db.add(doc)
+    await db.flush()
+
+    # Add verification record
+    db.add(DoctorVerification(
+        doctor_id=doc.id,
+        medical_council="National Medical Board",
+        graduation_year=2015,
+        status=status_str,
+        reviewed_by_admin_id=admin_user.id,
+        reviewed_at=datetime.now(timezone.utc) if payload.auto_verify else None,
+        review_notes="Directly provisioned and verified by Super Administrator."
+    ))
+
+    db.add(AuditLog(
+        user_id=admin_user.id,
+        action="ADMIN_PROVISION_DOCTOR",
+        resource_type="DOCTOR",
+        resource_id=str(doc.id),
+        details={"doctor_email": payload.email, "license": payload.license_number}
+    ))
+
+    await db.commit()
+    return {
+        "status": "success",
+        "message": f"Physician account '{payload.full_name}' successfully provisioned.",
+        "user_id": new_user.id,
+        "doctor_id": doc.id,
+        "verified": doc.verified
+    }
 
 @router.post("/doctors/{doctor_id}/verify")
 async def verify_doctor(

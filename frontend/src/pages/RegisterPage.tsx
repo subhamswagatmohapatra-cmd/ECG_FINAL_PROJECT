@@ -77,6 +77,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
     qualifications: 'MBBS, MD (Cardiology), FACC',
     years_of_experience: 8,
     medical_council: 'National Medical Commission / State Medical Board',
+    clinical_authorization_code: '',
     consent_clinical_terms: true
   });
 
@@ -260,6 +261,10 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
       setError('Medical license number is mandatory for clinical onboarding.');
       return;
     }
+    if (!doctorData.clinical_authorization_code.trim()) {
+      setError('Hospital Clinical Authorization Passcode is mandatory. Patients cannot register for the Doctor Portal.');
+      return;
+    }
 
     setLoading(true);
 
@@ -274,7 +279,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
         hospital_affiliation: doctorData.hospital_affiliation,
         qualifications: doctorData.qualifications,
         years_of_experience: Number(doctorData.years_of_experience),
-        medical_council: doctorData.medical_council
+        medical_council: doctorData.medical_council,
+        clinical_authorization_code: doctorData.clinical_authorization_code.trim().toUpperCase()
       });
 
       showToast(
@@ -420,10 +426,44 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigate }) => {
         {/* ------------------------------------------------------------- */}
         {selectedRole === 'doctor' && (
           <form onSubmit={handleDoctorSubmit} className="p-6 sm:p-8 space-y-6 text-xs">
+            {/* Restricted Access Alert Badge */}
+            <div className="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/50 text-amber-200 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-300 text-xs tracking-wide uppercase">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Restricted Medical Staff Onboarding &bull; Clinical Access Guard</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-300">
+                Patient users are strictly prohibited from creating clinician accounts. Physician onboarding requires a valid <strong className="text-amber-300 font-mono">Hospital Clinical Authorization Passcode (e.g. CARDIO-MD-2026)</strong> issued by the Medical Board, or direct credential provisioning by the Super Administrator.
+              </p>
+            </div>
+
             <div className="border-b border-slate-800 pb-2">
               <h2 className="text-sm font-bold text-teal-300 uppercase tracking-wider flex items-center gap-2">
                 <Stethoscope className="w-4 h-4 text-teal-400" /> Physician Credentials & Medical Board Registration
               </h2>
+            </div>
+
+            {/* Hospital Authorization Passcode (MANDATORY) */}
+            <div className="p-4 rounded-2xl bg-slate-900/90 border-2 border-amber-500/40 space-y-2">
+              <label className="block font-bold text-amber-300 mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-amber-400" />
+                  Hospital Clinical Authorization Passcode *
+                </span>
+                <span className="text-[10px] text-amber-400 font-mono font-semibold">Authorized Staff Only</span>
+              </label>
+              <input
+                type="text"
+                required
+                name="clinical_authorization_code"
+                value={doctorData.clinical_authorization_code}
+                onChange={handleDoctorChange}
+                className="w-full p-3 bg-slate-950 border border-amber-500/60 rounded-xl text-amber-200 placeholder-slate-600 focus:outline-none focus:border-amber-400 font-mono tracking-widest text-sm uppercase font-bold"
+                placeholder="CARDIO-MD-2026"
+              />
+              <p className="text-[10px] text-slate-400">
+                Staff passcode verifies physician identity. Patients attempting to register here will be rejected by the security layer.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
